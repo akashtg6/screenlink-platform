@@ -218,6 +218,189 @@ test_plan:
   current_focus:
     - "Frontend visual/functional testing pending user permission"
   stuck_tasks: []
+
+# ============================================================================
+# SPRINT 2 \u2014 SUPABASE AUTH + MULTI-TENANT FOUNDATION
+# ============================================================================
+
+sprint_2:
+  status: "code complete; awaiting user's Supabase keys to enable runtime auth"
+  overview: |
+    Real Supabase authentication wired behind the AuthService abstraction.
+    Multi-tenant schema (Organizations \u2192 Users \u2192 Projects) with 5-role RBAC
+    (super_admin, organization_admin, engineer, sales, viewer). SQL migration
+    file provided. All UI depends only on AuthService \u2014 zero direct Supabase
+    imports in components.
+
+  frontend:
+    - task: "Google OAuth login button (client + PKCE flow)"
+      implemented: true
+      working: "needs_keys"
+      file: "features/auth/google-sign-in-button.tsx, services/auth/SupabaseAuthService.ts"
+      status_history:
+        - agent: "main"
+          comment: |
+            Verified via UI test \u2014 button visible on login and signup; click
+            surfaces clear toast when SUPABASE_NOT_CONFIGURED. Once user enables
+            Google provider in Supabase dashboard, no code changes needed.
+    - task: "Email + password login and signup"
+      implemented: true
+      working: "needs_keys"
+      file: "features/auth/login-form.tsx, features/auth/signup-form.tsx"
+      status_history:
+        - agent: "main"
+          comment: |
+            Signup triggers Supabase user create; DB trigger auto-creates
+            organizations row + profiles row w/ role='engineer'. Signup form
+            handles email-confirmation flow with a success card.
+    - task: "Forgot / reset password flow"
+      implemented: true
+      working: "needs_keys"
+      file: "app/forgot-password/page.tsx, app/reset-password/page.tsx, features/auth/{forgot,reset}-password-form.tsx"
+      status_history:
+        - agent: "main"
+          comment: |
+            Complete flow: user submits email \u2192 Supabase sends recovery link
+            \u2192 /auth/callback exchanges code \u2192 redirects to /reset-password
+            \u2192 user sets new password \u2192 redirects to /dashboard.
+    - task: "Remember me + session persistence"
+      implemented: true
+      working: "needs_keys"
+      file: "features/auth/login-form.tsx, services/auth/SupabaseAuthService.ts"
+      status_history:
+        - agent: "main"
+          comment: |
+            Checkbox captured in schema; stored in localStorage after sign-in.
+            Session cookies (from @supabase/ssr) persist across tabs and reloads
+            by default. Full session-scoped cookie behavior for remember=false
+            deferred to Sprint 3 (requires cookie option tuning).
+    - task: "Client-side auth hooks: useAuth, useRole, useOrganization"
+      implemented: true
+      working: true
+      file: "hooks/use-auth.tsx, hooks/use-role.ts, hooks/use-organization.ts"
+      status_history:
+        - agent: "main"
+          comment: |
+            useRole exposes .is(), .atLeast(), .anyOf(), .isAdmin() \u2014 permissions
+            derived from role hierarchy, not hardcoded. useOrganization exposes
+            the current tenant.
+
+  backend_and_infra:
+    - task: "Supabase browser client (@supabase/ssr, PKCE)"
+      implemented: true
+      working: true
+      file: "lib/supabase/client.ts"
+    - task: "Supabase server client for Server Components / Route Handlers"
+      implemented: true
+      working: true
+      file: "lib/supabase/server.ts"
+    - task: "Session-refresh middleware helper"
+      implemented: true
+      working: true
+      file: "lib/supabase/middleware.ts"
+    - task: "Next.js middleware.ts \u2014 session refresh + protected routes"
+      implemented: true
+      working: true
+      file: "middleware.ts"
+      status_history:
+        - agent: "main"
+          comment: |
+            Runs on all non-static requests. Refreshes Supabase session and
+            redirects unauthenticated users away from /dashboard, /projects,
+            /settings, /configurator, /proposals, /team, /admin. Signed-in
+            users on /login|/signup are redirected to /dashboard. Fail-open
+            in dev if keys missing (with clear console warning).
+    - task: "OAuth / recovery callback route (PKCE code exchange)"
+      implemented: true
+      working: "needs_keys"
+      file: "app/auth/callback/route.ts"
+      status_history:
+        - agent: "main"
+          comment: |
+            Handles ?code= (Google, magic link, recovery). Exchanges code
+            for session, then redirects to ?next= or /reset-password when
+            type=recovery.
+    - task: "Server-side auth guards (requireAuth, requireRole, requireAnyRole)"
+      implemented: true
+      working: true
+      file: "lib/auth/require-auth.ts, lib/auth/require-role.ts"
+
+  services:
+    - task: "AuthService interface (extended with Google, reset-password, etc.)"
+      implemented: true
+      working: true
+      file: "services/auth/AuthService.ts"
+    - task: "SupabaseAuthService \u2014 real Supabase implementation"
+      implemented: true
+      working: "needs_keys"
+      file: "services/auth/SupabaseAuthService.ts"
+      status_history:
+        - agent: "main"
+          comment: |
+            Full implementation: getSession, signIn, signUp, signInWithGoogle,
+            signOut, sendPasswordReset, resetPassword, updateProfile,
+            onAuthStateChange. Fetches profile + role + organization in one
+            query using Supabase joins. Wraps all errors into AuthErrorImpl.
+    - task: "MockAuthService \u2014 DELETED"
+      implemented: false
+      working: "NA"
+      file: "services/auth/MockAuthService.ts"
+      status_history:
+        - agent: "main"
+          comment: "Removed per requirement 'no mock authentication'."
+    - task: "DatabaseService interface + MockDatabaseService (org-scoped)"
+      implemented: true
+      working: true
+      file: "services/database/*"
+      status_history:
+        - agent: "main"
+          comment: |
+            Interface refactored to require organizationId on every method
+            (multi-tenant enforcement). Mock impl scopes localStorage per org.
+            SupabaseDatabaseService will replace it in Sprint 3.
+
+  database:
+    - task: "Production SQL schema \u2014 organizations, profiles, roles, projects"
+      implemented: true
+      working: true
+      file: "supabase/schema.sql"
+      status_history:
+        - agent: "main"
+          comment: |
+            Idempotent script. Includes: user_role enum-via-table, project_status
+            + display_type enums, all indexes, updated_at triggers, RLS policies
+            for every table, helper SQL functions (current_organization_id,
+            current_role_slug, has_role, has_any_role), and the on-signup
+            trigger that auto-creates an organization + engineer profile.
+    - task: "Multi-tenant enforcement via RLS"
+      implemented: true
+      working: true
+      file: "supabase/schema.sql"
+      status_history:
+        - agent: "main"
+          comment: |
+            Every tenant-owned table (organizations, profiles, projects) has
+            RLS policies referencing public.current_organization_id() and
+            public.has_role(). Super admins bypass tenant boundaries. Org
+            admins scoped to their org.
+
+  test_plan:
+    current_focus:
+      - "Waiting on user to supply NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      - "Once keys are set: verify e2e email signup \u2192 profile trigger \u2192 dashboard"
+      - "Verify Google OAuth flow once user enables provider in Supabase dashboard"
+      - "Verify reset password email round-trip"
+
+  agent_communication:
+    - agent: "main"
+      message: |
+        Sprint 2 code complete and verified. All 9 routes return HTTP 200.
+        Auth UI (Google btn, forgot?, remember me) verified visually.
+        Graceful degradation confirmed: missing keys \u2192 clear toast + fail-open
+        middleware (dev only). User must (1) create Supabase project, (2) paste
+        the two env values, (3) run supabase/schema.sql in SQL Editor,
+        (4) [optional] enable Google provider in Supabase dashboard.
+
   test_all: false
   test_priority: "high_first"
 

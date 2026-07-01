@@ -1,13 +1,26 @@
 import type { DatabaseService, ProjectFilter } from './DatabaseService'
 import type { NewProjectInput, Paginated, Project } from '@/types'
 
-const STORAGE_KEY = 'screenlink.projects'
+/**
+ * Client-side, per-organization localStorage mock. Sprint 3 will replace this
+ * with SupabaseDatabaseService (real Postgres w/ RLS).
+ *
+ * NOTE: This is only used as a fallback until real Supabase-backed data access
+ * is wired in Sprint 3 (Project Wizard). The interface itself is provider-agnostic
+ * and enforces tenant scoping via `organizationId`.
+ */
+const STORAGE_PREFIX = 'screenlink.projects.'
 
-function seed(): Project[] {
+function key(orgId: string) {
+  return STORAGE_PREFIX + orgId
+}
+
+function seed(orgId: string): Project[] {
   const iso = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString()
   return [
     {
       id: 'prj_001',
+      organizationId: orgId,
       name: 'Nakheel Mall Anchor LED Wall',
       code: 'SL-2025-001',
       status: 'in_review',
@@ -24,12 +37,13 @@ function seed(): Project[] {
       },
       location: 'Dubai, UAE',
       budgetUsd: 145000,
-      ownerId: 'usr_demo',
+      createdBy: null,
       createdAt: iso(9),
       updatedAt: iso(2),
     },
     {
       id: 'prj_002',
+      organizationId: orgId,
       name: 'Airport Terminal Wayfinding Video Wall',
       code: 'SL-2025-002',
       status: 'draft',
@@ -45,12 +59,13 @@ function seed(): Project[] {
       },
       location: 'Bengaluru, IN',
       budgetUsd: 72000,
-      ownerId: 'usr_demo',
+      createdBy: null,
       createdAt: iso(4),
       updatedAt: iso(1),
     },
     {
       id: 'prj_003',
+      organizationId: orgId,
       name: 'Stadium Perimeter LED — East Wing',
       code: 'SL-2025-003',
       status: 'approved',
@@ -67,12 +82,13 @@ function seed(): Project[] {
       },
       location: 'Munich, DE',
       budgetUsd: 480000,
-      ownerId: 'usr_demo',
+      createdBy: null,
       createdAt: iso(21),
       updatedAt: iso(6),
     },
     {
       id: 'prj_004',
+      organizationId: orgId,
       name: 'Corporate Lobby Interactive Kiosk',
       code: 'SL-2025-004',
       status: 'delivered',
@@ -88,37 +104,44 @@ function seed(): Project[] {
       },
       location: 'Tokyo, JP',
       budgetUsd: 18500,
-      ownerId: 'usr_demo',
+      createdBy: null,
       createdAt: iso(45),
       updatedAt: iso(30),
     },
   ]
 }
 
-function read(): Project[] {
+function read(orgId: string): Project[] {
   if (typeof window === 'undefined') return []
-  const raw = window.localStorage.getItem(STORAGE_KEY)
+  const raw = window.localStorage.getItem(key(orgId))
   if (!raw) {
-    const s = seed()
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+    const s = seed(orgId)
+    window.localStorage.setItem(key(orgId), JSON.stringify(s))
     return s
   }
   try { return JSON.parse(raw) as Project[] } catch { return [] }
 }
 
-function write(list: Project[]) {
+function write(orgId: string, list: Project[]) {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+  window.localStorage.setItem(key(orgId), JSON.stringify(list))
 }
 
 function uid(prefix = 'prj') {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function ensureOrg(id?: string): string {
+  if (!id) throw new Error('organizationId is required (multi-tenant isolation)')
+  return id
+}
+
 export class MockDatabaseService implements DatabaseService {
   async listProjects(filter: ProjectFilter = {}): Promise<Paginated<Project>> {
-    await new Promise((r) => setTimeout(r, 120))
-    let list = read()
+    await new Promise((r) => setTimeout(r, 80))
+    const orgId = ensureOrg(filter.organizationId)
+    let list = read(orgId)
+
     if (filter.q) {
       const q = filter.q.toLowerCase()
       list = list.filter(
@@ -130,30 +153,26 @@ export class MockDatabaseService implements DatabaseService {
       )
     }
     if (filter.status) list = list.filter((p) => p.status === filter.status)
-    if (filter.ownerId) list = list.filter((p) => p.ownerId === filter.ownerId)
 
     const page = filter.page ?? 1
     const pageSize = filter.pageSize ?? 20
     const start = (page - 1) * pageSize
-    return {
-      data: list.slice(start, start + pageSize),
-      total: list.length,
-      page,
-      pageSize,
-    }
+    return { data: list.slice(start, start + pageSize), total: list.length, page, pageSize }
   }
 
-  async getProject(id: string) {
-    await new Promise((r) => setTimeout(r, 80))
-    return read().find((p) => p.id === id) ?? null
+  async getProject(id: string, organizationId: string) {
+    await new Promise((r) => setTimeout(r, 40))
+    return read(ensureOrg(organizationId)).find((p) => p.id === id) ?? null
   }
 
-  async createProject(input: NewProjectInput, ownerId: string): Promise<Project> {
-    await new Promise((r) => setTimeout(r, 200))
-    const list = read()
+  async createProject(input: NewProjectInput, organizationId: string, createdBy: string): Promise<Project> {
+    await new Promise((r) => setTimeout(r, 120))
+    const orgId = ensureOrg(organizationId)
+    const list = read(orgId)
     const nextIdx = list.length + 1
     const project: Project = {
       id: uid(),
+      organizationId: orgId,
       code: input.code || `SL-${new Date().getFullYear()}-${String(nextIdx).padStart(3, '0')}`,
       name: input.name,
       status: input.status,
@@ -161,27 +180,29 @@ export class MockDatabaseService implements DatabaseService {
       requirements: input.requirements,
       location: input.location,
       budgetUsd: input.budgetUsd,
-      ownerId,
+      createdBy,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
-    write([project, ...list])
+    write(orgId, [project, ...list])
     return project
   }
 
-  async updateProject(id: string, patch: Partial<Project>): Promise<Project> {
-    await new Promise((r) => setTimeout(r, 150))
-    const list = read()
+  async updateProject(id: string, organizationId: string, patch: Partial<Project>): Promise<Project> {
+    await new Promise((r) => setTimeout(r, 80))
+    const orgId = ensureOrg(organizationId)
+    const list = read(orgId)
     const idx = list.findIndex((p) => p.id === id)
     if (idx === -1) throw new Error('Project not found')
     const updated = { ...list[idx], ...patch, updatedAt: new Date().toISOString() } as Project
     list[idx] = updated
-    write(list)
+    write(orgId, list)
     return updated
   }
 
-  async deleteProject(id: string) {
-    await new Promise((r) => setTimeout(r, 100))
-    write(read().filter((p) => p.id !== id))
+  async deleteProject(id: string, organizationId: string) {
+    await new Promise((r) => setTimeout(r, 60))
+    const orgId = ensureOrg(organizationId)
+    write(orgId, read(orgId).filter((p) => p.id !== id))
   }
 }

@@ -1,7 +1,13 @@
 import type { AuthService } from './AuthService'
-import { MockAuthService } from './MockAuthService'
+import { SupabaseAuthService } from './SupabaseAuthService'
 
-// Swap this single line to change providers (e.g. new SupabaseAuthService()).
-export const authService: AuthService = new MockAuthService()
+/**
+ * The single concrete AuthService instance for the entire application.
+ *
+ * Swap this line to introduce a new provider without touching UI or business logic:
+ *   export const authService: AuthService = new WorkOSAuthService()
+ */
+export const authService: AuthService = new SupabaseAuthService()
 
-export type { AuthService }
+export type { AuthService } from './AuthService'
+export { AuthErrorImpl } from './AuthService'

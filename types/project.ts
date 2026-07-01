@@ -23,18 +23,19 @@ export interface DisplayRequirements {
 
 export interface Project {
   id: string
-  name: string
+  organizationId: string
   code: string
+  name: string
   status: ProjectStatus
   customer: Customer
   requirements: DisplayRequirements
   location?: string
   budgetUsd?: number
-  ownerId: string
+  createdBy?: string | null
   createdAt: string
   updatedAt: string
 }
 
-export type NewProjectInput = Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'code'> & {
+export type NewProjectInput = Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'organizationId' | 'createdBy' | 'code'> & {
   code?: string
 }

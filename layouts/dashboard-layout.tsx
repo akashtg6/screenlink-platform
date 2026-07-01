@@ -1,21 +1,16 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
 import { useAuth } from '@/hooks/use-auth'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Authentication is enforced server-side by middleware.ts.
+  // This component only renders while waiting for the client session to hydrate.
   const { user, loading } = useAuth()
-  const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && !user) router.replace('/login?next=' + encodeURIComponent(window.location.pathname))
-  }, [loading, user, router])
-
-  if (loading || !user) {
+  if (loading && !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="w-64 space-y-3">
