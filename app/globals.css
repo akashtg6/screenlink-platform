@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 210 40% 98%;            /* #F8FAFC */
+    --foreground: 222 47% 11%;            /* Slate-900 */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Brand */
+    --primary: 209 79% 28%;               /* #0F4C81 */
+    --primary-foreground: 0 0% 100%;
+    --accent: 192 100% 50%;               /* #00C2FF */
+    --accent-foreground: 209 79% 15%;
+
+    /* Neutrals */
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 16% 45%;
+
+    /* States */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 69% 31%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+    --info: 209 79% 28%;
+    --info-foreground: 0 0% 100%;
+
+    /* Borders / rings */
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 209 79% 28%;
+
+    /* Data viz */
+    --chart-1: 209 79% 28%;
+    --chart-2: 192 100% 50%;
+    --chart-3: 152 69% 31%;
+    --chart-4: 32 95% 44%;
+    --chart-5: 262 60% 55%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 11%;    /* Slate-900 */
+    --sidebar-foreground: 214 32% 88%;
+    --sidebar-primary: 192 100% 50%;
+    --sidebar-primary-foreground: 209 79% 15%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 192 100% 50%;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 192 100% 50%;
+    --primary-foreground: 209 79% 15%;
+    --accent: 192 100% 50%;
+    --accent-foreground: 209 79% 15%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --destructive: 0 63% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 55%;
+    --warning-foreground: 0 0% 10%;
+    --info: 192 100% 50%;
+    --info-foreground: 209 79% 15%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 192 100% 50%;
+
+    --chart-1: 192 100% 50%;
+    --chart-2: 209 79% 55%;
+    --chart-3: 152 60% 55%;
+    --chart-4: 32 95% 60%;
+    --chart-5: 262 60% 65%;
+
+    --sidebar-background: 222 47% 5%;
+    --sidebar-foreground: 214 32% 88%;
+    --sidebar-primary: 192 100% 50%;
+    --sidebar-primary-foreground: 209 79% 15%;
+    --sidebar-accent: 217 33% 13%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 15%;
+    --sidebar-ring: 192 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+  }
+  ::selection {
+    @apply bg-accent/25 text-foreground;
+  }
+}
+
+@layer components {
+  .grid-pattern {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .dot-pattern {
+    background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .noise {
+    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.09 0 0 0 0 0.14 0 0 0 0.15 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+}
