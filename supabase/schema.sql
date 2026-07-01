@@ -178,7 +178,7 @@ begin
 
   orgname := coalesce(
     nullif(new.raw_user_meta_data->>'organization', ''),
-    fullname || '''s Workspace'
+    fullname || ' Workspace'
   );
 
   select id into default_role_id from public.roles where slug = 'engineer' limit 1;
