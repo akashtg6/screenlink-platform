@@ -1,17 +1,16 @@
-import type { NewProjectInput, Paginated, Project } from '@/types'
+import type { NewProjectInput, Paginated, Project, ProjectStatus, ProjectPriority } from '@/types'
 
 export interface ProjectFilter {
   q?: string
-  status?: Project['status']
+  status?: ProjectStatus | ProjectStatus[]
+  priority?: ProjectPriority
   organizationId?: string
+  sort?: 'updated_desc' | 'created_desc' | 'name_asc' | 'name_desc' | 'progress_desc'
   page?: number
   pageSize?: number
+  includeArchived?: boolean
 }
 
-/**
- * Provider-agnostic data access contract.
- * Every method is TENANT-SCOPED by `organizationId`.
- */
 export interface DatabaseService {
   listProjects(filter?: ProjectFilter): Promise<Paginated<Project>>
   getProject(id: string, organizationId: string): Promise<Project | null>
