@@ -96,6 +96,7 @@ function RowActions({ project, onEdit, onDuplicate, onArchive, onDelete }: Omit<
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem asChild><Link href={`/projects/${project.id}`}>Open</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={`/projects/${project.id}/workspace`}>Open workspace</Link></DropdownMenuItem>
         <DropdownMenuItem onClick={() => onEdit?.(project)}>Edit</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onDuplicate?.(project)}>Duplicate</DropdownMenuItem>
         <DropdownMenuSeparator />

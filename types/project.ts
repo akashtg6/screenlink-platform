@@ -71,6 +71,10 @@ export interface Requirements {
   viewing?: ViewingConfig
   electrical?: ElectricalConfig
   application?: Application
+  /** Release 0.5 — commercial inputs persisted as JSONB. Shape matches
+   * `CommercialInput` from `@/commercial-engine`. Kept structurally-typed
+   * so this file has no import cycle with the engines. */
+  commercial?: Record<string, unknown>
 }
 
 export interface Project {

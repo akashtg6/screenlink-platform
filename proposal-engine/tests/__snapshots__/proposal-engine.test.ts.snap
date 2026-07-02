@@ -1,0 +1,1075 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Proposal Engine — generateProposal > matches the golden snapshot of the composed document 1`] = `
+{
+  "branding": {
+    "accentColor": "#0EA5E9",
+    "companyName": "ScreenLink.ai",
+    "contact": {
+      "email": "hello@screenlink.ai",
+      "website": "https://screenlink.ai",
+    },
+    "footerText": "Generated with ScreenLink.ai — the professional display engineering platform.",
+    "legal": {
+      "registeredName": "ScreenLink Technologies",
+    },
+    "primaryColor": "#0F172A",
+    "tagline": "Professional Display Engineering — designed, engineered, quoted.",
+  },
+  "currency": "INR",
+  "customer": {
+    "address": "221B Baker Street, London",
+    "contactPerson": "Jane Buyer",
+    "email": "jane@acme.example",
+    "name": "ACME Corporation",
+    "organization": "ACME Corp",
+    "phone": "+1 555 0100",
+  },
+  "meta": {
+    "boqVersion": "0.5.0",
+    "commercialVersion": "0.5.0",
+    "engineeringVersion": "4B.0.0",
+    "generatedAt": "STABLE-TIMESTAMP",
+    "proposalEngineVersion": "0.5.0",
+  },
+  "project": {
+    "application": "Corporate lobby",
+    "preparedBy": "ScreenLink Solutions",
+    "projectCode": "ACME-LOBBY-001",
+    "projectId": "proj-1234",
+    "projectName": "Downtown Lobby LED Wall",
+    "proposalDate": "2026-06-02T00:00:00.000Z",
+    "proposalNumber": "SL-2026-0001",
+    "revision": "R0",
+    "siteAddress": "ACME HQ, Ground Floor",
+    "validUntil": "2026-07-02T00:00:00.000Z",
+  },
+  "sections": [
+    {
+      "id": "cover",
+      "kind": "cover",
+      "order": 1,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "ScreenLink.ai",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Professional Display Engineering — designed, engineered, quoted.",
+        },
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Downtown Lobby LED Wall",
+        },
+        {
+          "items": [
+            {
+              "label": "Prepared for",
+              "value": "ACME Corp",
+            },
+            {
+              "label": "Contact",
+              "value": "Jane Buyer",
+            },
+            {
+              "label": "Proposal number",
+              "value": "SL-2026-0001",
+            },
+            {
+              "label": "Proposal date",
+              "value": "2026-06-02",
+            },
+            {
+              "label": "Revision",
+              "value": "R0",
+            },
+            {
+              "label": "Valid until",
+              "value": "2026-07-02",
+            },
+            {
+              "label": "Prepared by",
+              "value": "ScreenLink Solutions",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Proposal",
+    },
+    {
+      "id": "customer_project",
+      "kind": "customer_project",
+      "order": 2,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Customer",
+        },
+        {
+          "items": [
+            {
+              "label": "Customer",
+              "value": "ACME Corporation",
+            },
+            {
+              "label": "Organisation",
+              "value": "ACME Corp",
+            },
+            {
+              "label": "Contact",
+              "value": "Jane Buyer",
+            },
+            {
+              "label": "Email",
+              "value": "jane@acme.example",
+            },
+            {
+              "label": "Phone",
+              "value": "+1 555 0100",
+            },
+            {
+              "label": "Address",
+              "value": "221B Baker Street, London",
+            },
+          ],
+          "kind": "key_value",
+        },
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Project",
+        },
+        {
+          "items": [
+            {
+              "label": "Project name",
+              "value": "Downtown Lobby LED Wall",
+            },
+            {
+              "label": "Project code",
+              "value": "ACME-LOBBY-001",
+            },
+            {
+              "label": "Application",
+              "value": "Corporate lobby",
+            },
+            {
+              "label": "Site address",
+              "value": "ACME HQ, Ground Floor",
+            },
+            {
+              "label": "Target completion date",
+              "value": "—",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Customer & Project",
+    },
+    {
+      "id": "project_summary",
+      "kind": "project_summary",
+      "order": 3,
+      "rows": [
+        {
+          "kind": "paragraph",
+          "text": "A concise, executive-level overview of the display solution proposed for this project.",
+        },
+        {
+          "items": [
+            {
+              "label": "Screen size",
+              "value": "289"  (23.04 m²)",
+            },
+            {
+              "label": "Aspect ratio",
+              "value": "16:9 (1.78:1)",
+            },
+            {
+              "label": "Resolution",
+              "value": "3368 × 1894 (Custom)",
+            },
+            {
+              "label": "Pixel density",
+              "value": "13.37 PPI",
+            },
+            {
+              "label": "Cabinets",
+              "value": "10 × 10  (100 total)",
+            },
+            {
+              "label": "Viewing distance",
+              "value": "5.7 m recommended",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Project Summary",
+    },
+    {
+      "id": "engineering_summary",
+      "kind": "engineering_summary",
+      "order": 4,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Engineering summary",
+        },
+        {
+          "items": [
+            {
+              "label": "Engineering score",
+              "value": "98/100 (A)",
+            },
+            {
+              "label": "Display design",
+              "value": "96",
+            },
+            {
+              "label": "Viewing experience",
+              "value": "100",
+            },
+            {
+              "label": "Installation",
+              "value": "100",
+            },
+            {
+              "label": "Power efficiency",
+              "value": "100",
+            },
+            {
+              "label": "Maintainability",
+              "value": "88",
+            },
+          ],
+          "kind": "key_value",
+        },
+        {
+          "items": [
+            {
+              "label": "Max power",
+              "value": "18.43 kW",
+            },
+            {
+              "label": "Typical power",
+              "value": "9.22 kW",
+            },
+            {
+              "label": "Annual energy",
+              "value": "33,638 kWh",
+            },
+          ],
+          "kind": "key_value",
+        },
+        {
+          "items": [
+            {
+              "label": "Total weight",
+              "value": "691.2 kg",
+            },
+            {
+              "label": "Weight per m²",
+              "value": "30 kg/m²",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Engineering Summary",
+    },
+    {
+      "id": "commercial_summary",
+      "kind": "commercial_summary",
+      "order": 5,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Commercial summary",
+        },
+        {
+          "columns": [
+            "Category",
+            "Amount",
+            "Share",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "Material",
+              "₹79,21,600.00",
+              "83.50%",
+            ],
+            [
+              "Installation",
+              "₹55,000.00",
+              "0.58%",
+            ],
+            [
+              "Infrastructure",
+              "₹65,000.00",
+              "0.69%",
+            ],
+            [
+              "Services",
+              "₹20,000.00",
+              "0.21%",
+            ],
+            [
+              "Post-sale",
+              "₹14,25,888.00",
+              "15.03%",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Total cost",
+              "value": "₹94,87,488.00",
+            },
+            {
+              "label": "Margin",
+              "value": "25.00%",
+            },
+            {
+              "label": "Discount",
+              "value": "5.00%",
+            },
+            {
+              "label": "Price before tax",
+              "value": "₹1,20,17,484.80",
+            },
+            {
+              "label": "GST (18.00%)",
+              "value": "₹16,22,360.45",
+            },
+            {
+              "label": "Selling price",
+              "value": "₹1,36,39,845.25",
+            },
+            {
+              "label": "Profit",
+              "value": "₹25,29,996.80",
+            },
+          ],
+        },
+      ],
+      "title": "Commercial Summary",
+    },
+    {
+      "id": "boq",
+      "kind": "boq",
+      "order": 6,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Bill of Quantities",
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Display Modules",
+        },
+        {
+          "kind": "paragraph",
+          "text": "LED / LCD panels supplied per square metre.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "LED Display Module (per m²)",
+              "23.04",
+              "m²",
+              "₹90,000.00",
+              "₹20,73,600.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Display Modules subtotal",
+              "value": "₹20,73,600.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Cabinets",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Structural cabinets — fixed count derived from screen size.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Cabinet",
+              "100",
+              "nos",
+              "₹45,000.00",
+              "₹45,00,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Cabinets subtotal",
+              "value": "₹45,00,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Controllers",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Sending / control units driving the display.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Display Controller / Sending Card",
+              "5",
+              "nos",
+              "₹65,000.00",
+              "₹3,25,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Controllers subtotal",
+              "value": "₹3,25,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Receiving Cards",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Panel-side receiving cards (one per cabinet).",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Receiving Card",
+              "100",
+              "nos",
+              "₹3,500.00",
+              "₹3,50,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Receiving Cards subtotal",
+              "value": "₹3,50,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Power Supplies",
+        },
+        {
+          "kind": "paragraph",
+          "text": "PSU modules (one per cabinet).",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Power Supply Unit",
+              "100",
+              "nos",
+              "₹6,500.00",
+              "₹6,50,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Power Supplies subtotal",
+              "value": "₹6,50,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Cables",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Signal and power cabling as a bill lot.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Signal + Power Cables",
+              "1",
+              "lot",
+              "₹15,000.00",
+              "₹15,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Cables subtotal",
+              "value": "₹15,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Steel Structure",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Rear/front support structure for the wall.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Steel Support Structure",
+              "1",
+              "lot",
+              "₹40,000.00",
+              "₹40,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Steel Structure subtotal",
+              "value": "₹40,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Accessories",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Mounting hardware, tools, spares.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Accessories & Mounting Hardware",
+              "1",
+              "lot",
+              "₹8,000.00",
+              "₹8,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Accessories subtotal",
+              "value": "₹8,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Installation",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Labour, mobilisation and mechanical install.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Transportation & Logistics",
+              "1",
+              "lot",
+              "₹25,000.00",
+              "₹25,000.00",
+            ],
+            [
+              "2",
+              "Installation Labour",
+              "1",
+              "lot",
+              "₹55,000.00",
+              "₹55,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Installation subtotal",
+              "value": "₹80,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Commissioning & Testing",
+        },
+        {
+          "kind": "paragraph",
+          "text": "On-site alignment, colour calibration, sign-off.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Commissioning & Testing",
+              "1",
+              "lot",
+              "₹20,000.00",
+              "₹20,000.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Commissioning & Testing subtotal",
+              "value": "₹20,000.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Warranty",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Extended warranty coverage beyond the standard term.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Extended Warranty (2 years)",
+              "2",
+              "year",
+              "₹1,18,824.00",
+              "₹2,37,648.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Warranty subtotal",
+              "value": "₹2,37,648.00",
+            },
+          ],
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Annual Maintenance",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Post-warranty AMC — priced per contract year.",
+        },
+        {
+          "columns": [
+            "#",
+            "Description",
+            "Qty",
+            "Unit",
+            "Unit price",
+            "Amount",
+          ],
+          "kind": "table",
+          "rows": [
+            [
+              "1",
+              "Annual Maintenance Contract (3 years)",
+              "3",
+              "year",
+              "₹3,96,080.00",
+              "₹11,88,240.00",
+            ],
+          ],
+          "summary": [
+            {
+              "label": "Annual Maintenance subtotal",
+              "value": "₹11,88,240.00",
+            },
+          ],
+        },
+        {
+          "items": [
+            {
+              "label": "Grand subtotal",
+              "value": "₹94,87,488.00",
+            },
+            {
+              "label": "Discount",
+              "value": "₹6,32,499.20",
+            },
+            {
+              "label": "Price before tax",
+              "value": "₹1,20,17,484.80",
+            },
+            {
+              "label": "GST (18.00%)",
+              "value": "₹16,22,360.45",
+            },
+            {
+              "label": "Grand total",
+              "value": "₹1,36,39,845.25",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Bill of Quantities",
+    },
+    {
+      "id": "technical_specifications",
+      "kind": "technical_specifications",
+      "order": 7,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Technical specifications",
+        },
+        {
+          "items": [
+            {
+              "label": "Physical size",
+              "value": "6,400 × 3,600 mm",
+            },
+            {
+              "label": "Resolution",
+              "value": "3368 × 1894",
+            },
+            {
+              "label": "Pixel pitch",
+              "value": "1.9 mm",
+            },
+            {
+              "label": "Pixel density",
+              "value": "13.37 PPI",
+            },
+            {
+              "label": "Cabinet grid",
+              "value": "10 × 10",
+            },
+            {
+              "label": "Cabinet efficiency",
+              "value": "100.00%",
+            },
+            {
+              "label": "Power (max)",
+              "value": "18.43 kW",
+            },
+            {
+              "label": "Power density",
+              "value": "800 W/m²",
+            },
+            {
+              "label": "Weight",
+              "value": "691.2 kg",
+            },
+            {
+              "label": "Viewing (min/rec/max)",
+              "value": "1.9 / 5.7 / 57 m",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Technical Specifications",
+    },
+    {
+      "id": "recommendations",
+      "kind": "recommendations",
+      "order": 8,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Engineering recommendations",
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "MEDIUM · Specify brightness",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Why: No brightness specified. Recommended for indoor: 800 nits.",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Engineering rationale: Brightness governs perceived contrast under ambient light.",
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "LOW · Orientation: landscape",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Why: Aspect ratio 16:9 (1.78:1) favours a landscape mount.",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Engineering rationale: Wide-canvas ratios (16:9, 21:9, 32:9) are always mounted landscape unless content is portrait-authored (e.g. digital signage).",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Suggested action: Mount landscape.",
+        },
+      ],
+      "title": "Recommendations",
+    },
+    {
+      "id": "warnings",
+      "kind": "warnings",
+      "order": 9,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Warnings & notes",
+        },
+        {
+          "kind": "callout",
+          "text": "BRIGHTNESS_UNSPECIFIED: No brightness specified. Recommended for indoor: 800 nits.",
+          "tone": "warning",
+        },
+        {
+          "kind": "callout",
+          "text": "MAINTENANCE_ACCESS_MISSING: Maintenance access strategy is unspecified for a screen larger than 10 m².",
+          "tone": "warning",
+        },
+        {
+          "kind": "callout",
+          "text": "Resolution does not match a broadcast standard.",
+          "tone": "info",
+        },
+      ],
+      "title": "Warnings & Notes",
+    },
+    {
+      "id": "terms",
+      "kind": "terms",
+      "order": 10,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Terms & Conditions",
+        },
+        {
+          "items": [
+            {
+              "label": "Payment terms",
+              "value": "40% advance, 50% before dispatch, 10% after commissioning.",
+            },
+            {
+              "label": "Delivery lead time",
+              "value": "6–8 weeks from PO date",
+            },
+          ],
+          "kind": "key_value",
+        },
+      ],
+      "title": "Terms & Conditions",
+    },
+    {
+      "id": "warranty",
+      "kind": "warranty",
+      "order": 11,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Warranty & AMC",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Standard 2-year on-site warranty. Extended to 4 years via optional AMC.",
+        },
+      ],
+      "title": "Warranty",
+    },
+    {
+      "id": "company_details",
+      "kind": "company_details",
+      "order": 12,
+      "rows": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "ScreenLink.ai",
+        },
+        {
+          "items": [
+            {
+              "label": "Registered name",
+              "value": "ScreenLink Technologies",
+            },
+            {
+              "label": "Registration number",
+              "value": "—",
+            },
+            {
+              "label": "Tax id",
+              "value": "—",
+            },
+            {
+              "label": "Email",
+              "value": "hello@screenlink.ai",
+            },
+            {
+              "label": "Phone",
+              "value": "—",
+            },
+            {
+              "label": "Website",
+              "value": "https://screenlink.ai",
+            },
+            {
+              "label": "Address",
+              "value": "—",
+            },
+          ],
+          "kind": "key_value",
+        },
+        {
+          "kind": "paragraph",
+          "text": "Generated with ScreenLink.ai — the professional display engineering platform.",
+        },
+      ],
+      "title": "Company Details",
+    },
+  ],
+  "title": "ScreenLink.ai — Downtown Lobby LED Wall",
+  "totals": {
+    "grandTotal": 13639845.25,
+    "priceBeforeTax": 12017484.8,
+    "taxAmount": 1622360.45,
+    "totalCost": 9487488,
+  },
+}
+`;
