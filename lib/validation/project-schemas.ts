@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import type { Customer, Requirements } from '@/types'
+
 // Step 1 — Project Information
 export const stepInfoSchema = z.object({
   name: z.string().min(2, 'Project name is required'),
@@ -32,7 +34,7 @@ export const stepInstallationSchema = z.object({
 export const stepDisplaySchema = z.object({
   screenWidth: z.coerce.number().positive('Enter a positive number').optional().or(z.nan()),
   screenHeight: z.coerce.number().positive('Enter a positive number').optional().or(z.nan()),
-  measurementUnit: z.enum(['mm','cm','m','inch']).default('mm'),
+  measurementUnit: z.enum(['mm','cm','m','inch']),
   pixelPitchPreference: z.coerce.number().positive().optional().or(z.nan()),
   cabinetSize: z.string().optional().or(z.literal('')),
   preferredResolution: z.string().optional().or(z.literal('')),
@@ -197,10 +199,10 @@ export function valuesToProjectPatch(v: ProjectWizardValues) {
 
 export function projectToValues(p: {
   name: string; code?: string; description?: string; priority?: 'low' | 'medium' | 'high' | 'critical'
-  targetCompletionDate?: string; customer: Record<string, unknown>; requirements: Record<string, unknown>
+  targetCompletionDate?: string; customer: Customer; requirements: Requirements
 }): ProjectWizardValues {
-  const req = (p.requirements || {}) as Record<string, Record<string, unknown>>
-  const c = (p.customer || {}) as Record<string, string>
+  const req = (p.requirements || {}) as unknown as Record<string, Record<string, unknown>>
+  const c = (p.customer || {}) as unknown as Record<string, string>
   const inst = (req.installation || {}) as Record<string, unknown>
   const disp = (req.display || {}) as Record<string, unknown>
   const view = (req.viewing || {}) as Record<string, unknown>
@@ -213,7 +215,7 @@ export function projectToValues(p: {
     integrator: c.integrator || '',
     country: c.country || '',
     city: c.city || '',
-    application: (req.application as ProjectWizardValues['application']) || undefined,
+    application: (req.application as unknown as ProjectWizardValues['application']) || undefined,
     description: p.description || '',
     priority: p.priority || undefined,
     targetCompletionDate: p.targetCompletionDate || '',

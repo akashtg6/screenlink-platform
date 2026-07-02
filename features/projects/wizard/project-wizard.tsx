@@ -26,6 +26,7 @@ import type { Project } from '@/types'
 import { ProgressIndicator, type WizardStepDef } from './progress-indicator'
 import { WizardNavigation } from './wizard-navigation'
 import { AutosaveIndicator } from './autosave-indicator'
+import { EngineeringSummaryPanel } from './engineering-summary-panel'
 
 const STEPS: WizardStepDef[] = [
   { id: 1, label: 'Information',  description: 'Project & customer',       icon: Building2 },
@@ -120,7 +121,7 @@ export function ProjectWizard({ initialProject }: { initialProject?: Project }) 
 
   return (
     <FormProvider {...methods}>
-      <div className="grid gap-6 lg:grid-cols-[300px,1fr]">
+      <div className="grid gap-6 lg:grid-cols-[260px,minmax(0,1fr),340px]">
         <div className="space-y-4">
           <ProgressIndicator steps={STEPS} current={step} progressPercent={progressPercent} onSelect={goTo} />
           <div className="rounded-lg border border-border bg-card p-3">
@@ -141,6 +142,9 @@ export function ProjectWizard({ initialProject }: { initialProject?: Project }) 
             </form>
           </CardContent>
         </Card>
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <EngineeringSummaryPanel values={values} />
+        </aside>
       </div>
     </FormProvider>
   )

@@ -94,7 +94,7 @@ export interface Project {
 }
 
 export type NewProjectInput = Omit<Project,
-  'id' | 'createdAt' | 'updatedAt' | 'organizationId' | 'createdBy' | 'updatedBy' | 'progressPercent'
+  'id' | 'code' | 'createdAt' | 'updatedAt' | 'organizationId' | 'createdBy' | 'updatedBy' | 'progressPercent'
 > & {
   code?: string
   progressPercent?: number

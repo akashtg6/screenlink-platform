@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import * as React from "react"
 // Static import: recharts namespaces are used as JSX component types, which

@@ -24,9 +24,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
-    name: user?.name || '',
+    name: user?.fullName || '',
     email: user?.email || '',
-    organization: user?.organization || '',
+    organization: user?.organizationId || '',
     jobTitle: user?.jobTitle || '',
   })
 

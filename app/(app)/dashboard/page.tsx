@@ -24,7 +24,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <PageHeader
         eyebrow="Overview"
-        title={`Good day, ${user?.name?.split(' ')[0] || 'Engineer'}.`}
+        title={`Good day, ${user?.fullName?.split(' ')[0] || 'Engineer'}.`}
         description="Snapshot of active engineering work, pipeline value and items needing your review."
         actions={
           <Button asChild className="gap-1.5">

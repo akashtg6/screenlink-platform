@@ -30,21 +30,21 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button className="inline-flex items-center gap-2 rounded-full border border-border p-0.5 pr-3 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring">
           <Avatar className="h-7 w-7">
-            <AvatarImage src={user.avatarUrl || undefined} alt={user.name} />
+            <AvatarImage src={user.avatarUrl || undefined} alt={user.fullName} />
             <AvatarFallback className="bg-primary text-primary-foreground text-[11px] font-semibold">
-              {initials(user.name)}
+              {initials(user.fullName)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden text-xs font-medium text-foreground md:inline">{user.name}</span>
+          <span className="hidden text-xs font-medium text-foreground md:inline">{user.fullName}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">{user.name}</span>
+            <span className="text-sm font-semibold">{user.fullName}</span>
             <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
             <span className="mt-1 text-[10px] font-medium uppercase tracking-wider text-accent">
-              {user.role}
+              {user.roleSlug}
             </span>
           </div>
         </DropdownMenuLabel>
