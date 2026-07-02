@@ -7,25 +7,26 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
 export const dynamic = 'force-dynamic'
 
 export default async function WorkspacePage({ params }: Props) {
+  const { id } = await params
   const supabase = await createServerSupabaseClient()
 
   // Auth guard — middleware also enforces this; belt-and-braces here.
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?next=/projects/${params.id}/workspace`)
+  if (!user) redirect(`/login?next=/projects/${id}/workspace`)
 
   const { data: row, error } = await supabase
     .from('projects')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle()
 
   if (error || !row) {
-    return <NotFound id={params.id} />
+    return <NotFound id={id} />
   }
 
   const project: Project = {

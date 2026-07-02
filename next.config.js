@@ -7,7 +7,12 @@ const nextConfig = {
     ],
   },
   // Renamed from experimental.serverComponentsExternalPackages in Next 15
-  serverExternalPackages: ['mongodb'],
+  // - `mongodb` needs to run in Node runtime (not bundled).
+  // - `@react-pdf/renderer` pulls in a `_document`/`_app` chain that conflicts
+  //   with the App Router page-collection phase. Externalising it keeps the
+  //   library on the client-only bundle (it's only ever `await import()`ed).
+  // - `exceljs` similarly has native fs polyfills that break server tracing.
+  serverExternalPackages: ['mongodb', '@react-pdf/renderer', 'exceljs'],
   webpack(config, { dev }) {
     if (dev) {
       // Reduce CPU/memory from file watching
