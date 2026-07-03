@@ -58,7 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return
         // eslint-disable-next-line no-console
         console.info(`[auth] getSession resolved in ${(performance.now() - t0).toFixed(0)}ms, session=${s ? 'yes' : 'no'}`)
-        setSession(s)
+        // Never let a null result overwrite a session that an auth event
+        // already delivered (race between initial fetch and INITIAL_SESSION).
+        setSession((prev) => s ?? prev)
         setLoading(false)
       })
       .catch((err) => {

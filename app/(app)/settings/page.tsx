@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { PageHeader } from '@/components/data-display/page-header'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -10,35 +11,62 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useTheme } from 'next-themes'
 import { useAuth } from '@/hooks/use-auth'
 import { initials } from '@/utils/format'
 import { toast } from 'sonner'
-import { Moon, Sun, Monitor, Loader2 } from 'lucide-react'
+import { Moon, Sun, Monitor, Loader2, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function SettingsPage() {
-  const { user, updateProfile } = useAuth()
+  const { user, organization, updateProfile, signOut } = useAuth()
   const { theme, setTheme } = useTheme()
+  const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   const [form, setForm] = useState({
     name: user?.fullName || '',
     email: user?.email || '',
-    organization: user?.organizationId || '',
+    organization: organization?.name || '',
     jobTitle: user?.jobTitle || '',
   })
+
+  // Hydrate the form whenever the authenticated profile arrives/changes.
+  // Without this, the form keeps the empty values captured on first render
+  // (before the async profile fetch resolves).
+  useEffect(() => {
+    if (!user) return
+    setForm({
+      name: user.fullName || '',
+      email: user.email || '',
+      organization: organization?.name || '',
+      jobTitle: user.jobTitle || '',
+    })
+  }, [user, organization])
 
   async function save() {
     setSaving(true)
     try {
-      await updateProfile(form)
+      await updateProfile({ fullName: form.name, jobTitle: form.jobTitle })
       toast.success('Profile updated')
     } catch (e) {
       toast.error('Could not save changes')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    try {
+      await signOut()
+    } catch (err) {
+      console.error('[settings] signOut failed', err)
+    } finally {
+      router.push('/login')
+      router.refresh()
     }
   }
 
@@ -74,6 +102,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
+                  <AvatarImage src={user?.avatarUrl || undefined} alt={form.name || 'User avatar'} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">
                     {initials(form.name || 'ScreenLink')}
                   </AvatarFallback>
@@ -93,11 +122,12 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <Input id="email" type="email" value={form.email} readOnly disabled className="opacity-80" />
+                  <p className="text-[11px] text-muted-foreground">Managed by your sign-in provider.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="organization">Organization</Label>
-                  <Input id="organization" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
+                  <Input id="organization" value={form.organization} readOnly disabled className="opacity-80" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="jobTitle">Job title</Label>
@@ -115,6 +145,28 @@ export default function SettingsPage() {
                   Save changes
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-destructive/30">
+            <CardHeader>
+              <CardTitle className="text-heading-sm">Session</CardTitle>
+              <CardDescription>Sign out of ScreenLink on this device.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">{form.email || 'Signed in'}</p>
+                <p className="text-xs text-muted-foreground">You will be redirected to the login page.</p>
+              </div>
+              <Button
+                variant="destructive"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                data-testid="settings-signout"
+              >
+                {signingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                Sign out
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

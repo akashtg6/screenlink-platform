@@ -57,12 +57,25 @@ function firstOrNull<T>(v: T | T[] | null | undefined): T | null {
 }
 
 function mapProfile(row: ProfileRow, sbSession: SbSession): Session {
-  const roleRow = firstOrNull(row.roles)
+  let roleRow = firstOrNull(row.roles)
   if (!roleRow) {
-    throw new AuthErrorImpl(
-      'Profile is missing a role. Ensure the auth.users signup trigger ran successfully.',
-      'PROFILE_MISSING_ROLE',
+    // Graceful degradation: the roles embed can be blocked by RLS on the
+    // `roles` table even when the profile row itself is readable. Losing the
+    // role embed must NOT destroy the whole session (name/email/avatar are
+    // still valid). Fall back to a minimal 'engineer' role and log loudly so
+    // the misconfiguration is visible in the console.
+    // eslint-disable-next-line no-console
+    console.error(
+      '[auth] roles embed missing on profile row — check RLS SELECT policy on the `roles` table. Falling back to engineer role.',
     )
+    roleRow = {
+      id: row.role_id,
+      slug: 'engineer',
+      name: 'Engineer',
+      description: null,
+      hierarchy: 50,
+      is_system: true,
+    }
   }
   const orgRow = firstOrNull(row.organizations)
 
@@ -166,6 +179,18 @@ async function fetchProfileRowWithRetry(sb: SupabaseClient, userId: string): Pro
 
 
 export class SupabaseAuthService implements AuthService {
+  // Short-lived profile cache: dedupes the double fetch that happens on page
+  // load (getSession + INITIAL_SESSION event both hydrate the profile).
+  private profileCache: { userId: string; row: ProfileRow; at: number } | null = null
+
+  private async getProfileRow(sb: SupabaseClient, userId: string): Promise<ProfileRow> {
+    const c = this.profileCache
+    if (c && c.userId === userId && Date.now() - c.at < 30_000) return c.row
+    const row = await fetchProfileRowWithRetry(sb, userId)
+    this.profileCache = { userId, row, at: Date.now() }
+    return row
+  }
+
   private client(): SupabaseClient {
     if (!isSupabaseConfigured()) {
       throw new AuthErrorImpl(
@@ -191,7 +216,7 @@ export class SupabaseAuthService implements AuthService {
     const { data, error } = await sb.auth.getSession()
     if (error || !data.session) return null
     try {
-      const profile = await fetchProfileRowWithRetry(sb, data.session.user.id)
+      const profile = await this.getProfileRow(sb, data.session.user.id)
       return mapProfile(profile, data.session)
     } catch (err) {
       // Do NOT sign the user out here. A profile miss must surface, not silently
@@ -266,6 +291,7 @@ export class SupabaseAuthService implements AuthService {
 
   async signOut(): Promise<void> {
     if (!isSupabaseConfigured()) return
+    this.profileCache = null
     const sb = this.client()
     const { error } = await sb.auth.signOut()
     if (typeof window !== 'undefined') {
@@ -299,7 +325,9 @@ export class SupabaseAuthService implements AuthService {
     const { error } = await sb.from('profiles').update(dbPatch).eq('id', userData.user.id)
     if (error) this.wrapError(error)
 
+    this.profileCache = null // force fresh read after write
     const row = await fetchProfileRow(sb, userData.user.id)
+    this.profileCache = { userId: userData.user.id, row, at: Date.now() }
     const { data: sess } = await sb.auth.getSession()
     if (!sess.session) throw new AuthErrorImpl('Session lost', 'SESSION_LOST')
     return mapProfile(row, sess.session).user
@@ -308,19 +336,30 @@ export class SupabaseAuthService implements AuthService {
   onAuthStateChange(cb: (session: Session | null) => void): () => void {
     if (!isSupabaseConfigured()) return () => {}
     const sb = this.client()
-    const { data } = sb.auth.onAuthStateChange(async (_event, sbSession) => {
-      if (!sbSession) {
-        cb(null)
-        return
-      }
-      try {
-        const row = await fetchProfileRowWithRetry(sb, sbSession.user.id)
-        cb(mapProfile(row, sbSession))
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[auth] onAuthStateChange: profile hydration failed', err)
-        cb(null)
-      }
+    const { data } = sb.auth.onAuthStateChange((event, sbSession) => {
+      // CRITICAL: this callback runs while supabase-js holds its internal auth
+      // lock. Awaiting ANY other supabase call here (e.g. a profiles query,
+      // which internally calls getSession() to attach the access token)
+      // DEADLOCKS the client. Per Supabase docs, defer async work with
+      // setTimeout so it runs AFTER the lock is released.
+      setTimeout(() => {
+        void (async () => {
+          if (event === 'SIGNED_OUT' || !sbSession) {
+            this.profileCache = null
+            cb(null)
+            return
+          }
+          try {
+            const row = await this.getProfileRow(sb, sbSession.user.id)
+            cb(mapProfile(row, sbSession))
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error(`[auth] onAuthStateChange(${event}): profile hydration failed — keeping existing session state`, err)
+            // Do NOT cb(null): a transient profile fetch failure must never
+            // wipe a valid signed-in session from the UI.
+          }
+        })()
+      }, 0)
     })
     return () => data.subscription.unsubscribe()
   }

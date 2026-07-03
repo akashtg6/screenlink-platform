@@ -995,3 +995,60 @@ User must:
 5. Click any of them → should end at `/login`. Refresh should not reveal
    dashboard. Direct navigation to `/dashboard` should redirect back to `/login`.
 
+
+---
+
+## Release 0.5.3 — Profile Hydration Root-Cause Fix (Main Agent, current session)
+
+### Root cause found: supabase-js onAuthStateChange DEADLOCK
+`SupabaseAuthService.onAuthStateChange` awaited a `profiles` DB query INSIDE
+the auth event callback. In supabase-js v2 the callback runs while the client
+holds its internal auth lock; any PostgREST query inside it needs the SAME
+lock (to attach the access token via getSession) => deadlock. On production
+(higher latency) the INITIAL_SESSION event fired mid-fetch, wedging the
+client: 8s aborts, cb(null) wiped the session. Dashboard rendered but ALL
+profile fields were empty ("Engineer" greeting, initial-only avatar, blank
+Settings form). Locally the race usually resolved fine — explaining the
+production-only symptom.
+
+### Fixes
+1. `services/auth/SupabaseAuthService.ts`
+   - onAuthStateChange: callback is now synchronous; async profile fetch
+     deferred via setTimeout(0) (official Supabase guidance).
+   - cb(null) fires ONLY on SIGNED_OUT — a transient profile-fetch failure can
+     never wipe a valid session anymore.
+   - mapProfile: missing roles embed (RLS on roles table) now degrades
+     gracefully to a fallback engineer role instead of throwing away the whole
+     session. Loud console.error points at the RLS policy.
+   - Added 30s profile row cache (dedupes double fetch on load; invalidated on
+     signOut and updateProfile).
+2. `hooks/use-auth.tsx` — initial getSession result can no longer overwrite a
+   session already delivered by an auth event (setSession(prev => s ?? prev)).
+3. `app/(app)/settings/page.tsx`
+   - useEffect now hydrates the form when user/organization arrive (was a
+     one-shot useState capturing empty values).
+   - save() now maps to { fullName, jobTitle } (was sending wrong keys — name
+     changes never persisted).
+   - Organization field shows organization.name (was raw UUID); email + org
+     read-only.
+   - Avatar shows avatar_url image with initials fallback.
+   - NEW "Session" card with destructive Sign out button
+     (data-testid="settings-signout") → signOut() → /login.
+
+### Diagnostics
+- `scripts/diagnose-profile-rls.mjs` — signs into production Supabase and runs
+  the exact app profile query to verify RLS/joins. QA account is unconfirmed
+  so authenticated check is pending; anon check confirmed RLS enabled.
+
+### Tests
+- tsc --noEmit: clean. Vitest: 120/120 passing.
+- Screenshot: login page renders correctly.
+
+### Verification pending
+1. User: Save to GitHub -> Vercel redeploy -> Google login -> confirm full
+   name in greeting, avatar, and populated Settings form; test Sign out from
+   Settings and avatar menu.
+2. If profile STILL empty in prod, run in Supabase SQL editor:
+   - profiles:      create policy "read own profile" on public.profiles for select to authenticated using (auth.uid() = id);
+   - roles:         create policy "read roles" on public.roles for select to authenticated using (true);
+   - organizations: create policy "read own org" on public.organizations for select to authenticated using (id in (select organization_id from public.profiles where id = auth.uid()));
