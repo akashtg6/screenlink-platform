@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, PlusCircle, Menu } from 'lucide-react'
+import { Search, PlusCircle, Menu, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -55,6 +55,20 @@ export function TopNav() {
         <NotificationsPopover />
         <ThemeToggle />
         <UserMenu />
+
+        {/* Always-visible logout escape hatch — direct server route, cannot fail. */}
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          title="Sign out"
+        >
+          <a href="/logout" data-testid="topnav-logout-link">
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Log out</span>
+          </a>
+        </Button>
       </div>
     </header>
   )

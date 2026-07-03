@@ -18,13 +18,11 @@ export function UserMenu() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
 
-  // While the AuthProvider is still resolving, don't render anything yet
-  // (the DashboardLayout skeleton owns this state).
-  if (loading) return null
-
   const handleSignOut = async () => {
     try {
       await signOut()
+    } catch (err) {
+      console.error('[user-menu] signOut failed, falling back to /logout route', err)
     } finally {
       // Always navigate away even if signOut errors — the cookies get cleared
       // client-side and middleware will guard the next request.
@@ -33,16 +31,17 @@ export function UserMenu() {
     }
   }
 
-  // Defensive fallback: if the client couldn't hydrate the profile
-  // (e.g. RLS blocked the query, network hiccup) but there IS an authenticated
-  // session on the server, render a MINIMAL menu so the user can still sign out.
-  // This eliminates the "trapped without a sign-out button" failure mode.
-  if (!user) {
+  // Defensive fallback: if the client hasn't hydrated the profile yet (loading,
+  // RLS blocked, network hiccup) but the session cookie says the user IS signed
+  // in, render a MINIMAL menu so the user can still sign out. This eliminates
+  // the "trapped without a sign-out button" failure mode.
+  if (loading || !user) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             aria-label="Account menu"
+            data-testid="user-menu-trigger"
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted hover:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <UserIcon className="h-4 w-4 text-muted-foreground" />
@@ -52,11 +51,17 @@ export function UserMenu() {
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">Signed in</span>
-              <span className="text-xs font-normal text-muted-foreground">Profile still loading…</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {loading ? 'Loading profile…' : 'Profile unavailable'}
+              </span>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem
+            onClick={handleSignOut}
+            data-testid="user-menu-signout"
+            className="text-destructive focus:text-destructive"
+          >
             <LogOut className="mr-2 h-4 w-4" /> Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -67,7 +72,10 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="inline-flex items-center gap-2 rounded-full border border-border p-0.5 pr-3 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring">
+        <button
+          data-testid="user-menu-trigger"
+          className="inline-flex items-center gap-2 rounded-full border border-border p-0.5 pr-3 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+        >
           <Avatar className="h-7 w-7">
             <AvatarImage src={user.avatarUrl || undefined} alt={user.fullName} />
             <AvatarFallback className="bg-primary text-primary-foreground text-[11px] font-semibold">
@@ -98,7 +106,11 @@ export function UserMenu() {
           <LifeBuoy className="mr-2 h-4 w-4" /> Support
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+        <DropdownMenuItem
+          onClick={handleSignOut}
+          data-testid="user-menu-signout"
+          className="text-destructive focus:text-destructive"
+        >
           <LogOut className="mr-2 h-4 w-4" /> Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

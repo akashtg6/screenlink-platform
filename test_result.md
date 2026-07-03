@@ -939,3 +939,59 @@ release_0_5_1:
         Test credentials saved to /app/memory/test_credentials.md for manual
         confirmation if needed.
 
+
+---
+
+## Release 0.5.2 — Multi-location Sign Out UI (Main Agent, current session)
+
+### Summary
+User reported at app.screenlink.ai they can log into the dashboard but see NO
+visible logout option. Prior release (0.5.1) added `/logout` server route +
+top-nav hardcoded "Log out" text link — however those changes may not be
+deployed yet, and the previous UserMenu returned `null` while loading (masking
+the avatar). This release makes Sign Out visible in THREE independent places:
+
+1. **Sidebar footer (NEW)** — avatar + name + email card followed by a bold
+   red "Sign out" button. Always rendered on desktop, and inside the mobile
+   Sheet. Uses `useAuth().signOut()` → `supabase.auth.signOut()` → push
+   `/login` + `router.refresh()`.
+2. **Top-nav user menu (HARDENED)** — `UserMenu` now ALWAYS renders its
+   trigger (never returns null on `loading`). The dropdown shows
+   Name / Email / Role / Profile / Settings / Support / Sign out. Falls back
+   to a minimal "Signed in — Sign out" menu if profile hydration fails.
+3. **Top-nav failsafe link (EXISTING)** — Outline button next to the avatar
+   pointing to `<a href="/logout">Log out</a>`. Works even with JS broken.
+
+### Files touched
+- `components/dashboard/sidebar.tsx` — added `useAuth`, avatar identity card,
+  Sign Out button (`data-testid="sidebar-signout"`), and failsafe `/logout`
+  fallback link.
+- `components/dashboard/user-menu.tsx` — merged `loading` and `!user` branches
+  so the trigger always renders. Added `data-testid` markers.
+- `components/dashboard/top-nav.tsx` — added `data-testid` on the failsafe
+  `<a href="/logout">` link.
+
+### Sign-out flow (verified in code)
+`handleSignOut()` in both `UserMenu` and `Sidebar`:
+1. `await signOut()` → `authService.signOut()` → `supabase.auth.signOut()`
+2. `setSession(null)` inside `AuthProvider`
+3. `router.push('/login')` + `router.refresh()`
+4. If step 1 throws, we STILL redirect (defence-in-depth).
+5. The failsafe `<a href="/logout">` calls the server route which clears all
+   Supabase cookies and 303-redirects to `/login?signed_out=1`.
+
+### Tests
+- Vitest: 120/120 passing (16 suites, 4.58 s).
+- ESLint: clean on all three files.
+- Manual visual: pending user verification on production deploy.
+
+### Verification pending
+User must:
+1. Click "Save to GitHub" in the Emergent chat panel.
+2. Wait for Vercel to redeploy app.screenlink.ai.
+3. Sign in with Google OR email.
+4. Confirm Sign Out appears in the LEFT SIDEBAR FOOTER + TOP-RIGHT AVATAR MENU
+   + TOP-RIGHT "Log out" BUTTON.
+5. Click any of them → should end at `/login`. Refresh should not reveal
+   dashboard. Direct navigation to `/dashboard` should redirect back to `/login`.
+

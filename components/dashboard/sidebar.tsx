@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -12,9 +12,13 @@ import {
   Settings,
   LifeBuoy,
   Sparkles,
+  LogOut,
 } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/hooks/use-auth'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { initials } from '@/utils/format'
 
 const NAV_MAIN = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -36,6 +40,22 @@ interface SidebarProps {
 
 export function Sidebar({ className, onNavigate }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (err) {
+      console.error('[sidebar] signOut failed, falling back to /logout route', err)
+    } finally {
+      onNavigate?.()
+      // Always navigate to /login even if client-side signOut errored — the
+      // server /logout route is idempotent and the middleware will guard.
+      router.push('/login')
+      router.refresh()
+    }
+  }
 
   const renderItem = (item: (typeof NAV_MAIN)[number]) => {
     const active = pathname === item.href || pathname?.startsWith(item.href + '/')
@@ -113,6 +133,45 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
 
       <div className="space-y-0.5 border-t border-sidebar-border px-3 py-3">
         {NAV_FOOTER.map(renderItem)}
+
+        {/* ---- User identity + Sign Out ------------------------------------ */}
+        {/* Always rendered. If profile hasn't hydrated yet, show a minimal
+            fallback so the Sign Out action is NEVER hidden from the user. */}
+        <div className="mt-3 flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2 py-2">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user?.avatarUrl || undefined} alt={user?.fullName || 'User'} />
+            <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-[11px] font-semibold">
+              {user ? initials(user.fullName) : '·'}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 flex-col leading-tight">
+            <span className="truncate text-xs font-semibold text-sidebar-foreground">
+              {user?.fullName || 'Signed in'}
+            </span>
+            <span className="truncate text-[11px] text-sidebar-foreground/60">
+              {user?.email || 'Loading profile…'}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          data-testid="sidebar-signout"
+          className="mt-2 flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="flex-1 text-left">Sign out</span>
+        </button>
+
+        {/* Failsafe: direct server-route link. Works even if JS is broken. */}
+        <a
+          href="/logout"
+          onClick={() => onNavigate?.()}
+          className="mt-1 block px-2.5 text-[10px] text-sidebar-foreground/40 hover:text-sidebar-foreground/70"
+        >
+          Trouble signing out? Use this link.
+        </a>
       </div>
     </aside>
   )
