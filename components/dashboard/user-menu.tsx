@@ -15,14 +15,53 @@ import { useAuth } from '@/hooks/use-auth'
 import { initials } from '@/utils/format'
 
 export function UserMenu() {
-  const { user, signOut } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const router = useRouter()
 
-  if (!user) return null
+  // While the AuthProvider is still resolving, don't render anything yet
+  // (the DashboardLayout skeleton owns this state).
+  if (loading) return null
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push('/login')
+    try {
+      await signOut()
+    } finally {
+      // Always navigate away even if signOut errors — the cookies get cleared
+      // client-side and middleware will guard the next request.
+      router.push('/login')
+      router.refresh()
+    }
+  }
+
+  // Defensive fallback: if the client couldn't hydrate the profile
+  // (e.g. RLS blocked the query, network hiccup) but there IS an authenticated
+  // session on the server, render a MINIMAL menu so the user can still sign out.
+  // This eliminates the "trapped without a sign-out button" failure mode.
+  if (!user) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            aria-label="Account menu"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted hover:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <UserIcon className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold">Signed in</span>
+              <span className="text-xs font-normal text-muted-foreground">Profile still loading…</span>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+            <LogOut className="mr-2 h-4 w-4" /> Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
   }
 
   return (
