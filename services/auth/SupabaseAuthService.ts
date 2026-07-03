@@ -23,34 +23,48 @@ interface ProfileRow {
   is_active: boolean
   created_at: string
   updated_at: string
-  roles: {
-    id: string
-    slug: RoleSlug
-    name: string
-    description: string | null
-    hierarchy: number
-    is_system: boolean
-  } | null
-  organizations: {
-    id: string
-    name: string
-    slug: string | null
-    logo_url: string | null
-    website: string | null
-    industry: string | null
-    country: string | null
-    created_at: string
-    updated_at: string
-  } | null
+  // PostgREST can return embedded resources as an object OR an array
+  // depending on FK relationship inference. Handle both defensively.
+  roles: RoleEmbed | RoleEmbed[] | null
+  organizations: OrgEmbed | OrgEmbed[] | null
+}
+
+interface RoleEmbed {
+  id: string
+  slug: RoleSlug
+  name: string
+  description: string | null
+  hierarchy: number
+  is_system: boolean
+}
+
+interface OrgEmbed {
+  id: string
+  name: string
+  slug: string | null
+  logo_url: string | null
+  website: string | null
+  industry: string | null
+  country: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** PostgREST returns embedded rows as `T | T[] | null` — normalise to a single. */
+function firstOrNull<T>(v: T | T[] | null | undefined): T | null {
+  if (v == null) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
 }
 
 function mapProfile(row: ProfileRow, sbSession: SbSession): Session {
-  if (!row.roles) {
+  const roleRow = firstOrNull(row.roles)
+  if (!roleRow) {
     throw new AuthErrorImpl(
       'Profile is missing a role. Ensure the auth.users signup trigger ran successfully.',
       'PROFILE_MISSING_ROLE',
     )
   }
+  const orgRow = firstOrNull(row.organizations)
 
   const user: User = {
     id: row.id,
@@ -60,32 +74,32 @@ function mapProfile(row: ProfileRow, sbSession: SbSession): Session {
     jobTitle: row.job_title,
     organizationId: row.organization_id,
     roleId: row.role_id,
-    roleSlug: row.roles.slug,
+    roleSlug: roleRow.slug,
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 
   const role: Role = {
-    id: row.roles.id,
-    slug: row.roles.slug,
-    name: row.roles.name,
-    description: row.roles.description ?? undefined,
-    hierarchy: row.roles.hierarchy,
-    isSystem: row.roles.is_system,
+    id: roleRow.id,
+    slug: roleRow.slug,
+    name: roleRow.name,
+    description: roleRow.description ?? undefined,
+    hierarchy: roleRow.hierarchy,
+    isSystem: roleRow.is_system,
   }
 
-  const organization: Organization | null = row.organizations
+  const organization: Organization | null = orgRow
     ? {
-        id: row.organizations.id,
-        name: row.organizations.name,
-        slug: row.organizations.slug,
-        logoUrl: row.organizations.logo_url,
-        website: row.organizations.website,
-        industry: row.organizations.industry,
-        country: row.organizations.country,
-        createdAt: row.organizations.created_at,
-        updatedAt: row.organizations.updated_at,
+        id: orgRow.id,
+        name: orgRow.name,
+        slug: orgRow.slug,
+        logoUrl: orgRow.logo_url,
+        website: orgRow.website,
+        industry: orgRow.industry,
+        country: orgRow.country,
+        createdAt: orgRow.created_at,
+        updatedAt: orgRow.updated_at,
       }
     : null
 
@@ -118,6 +132,31 @@ async function fetchProfileRow(sb: SupabaseClient, userId: string): Promise<Prof
   return data as unknown as ProfileRow
 }
 
+/**
+ * Fetch the profile with a small retry window. Fixes the OAuth race where the
+ * DB trigger (`handle_new_user`) may not yet have inserted the profile row by
+ * the time the client-side session resolves. Retries: 250 ms, 700 ms, 1400 ms.
+ *
+ * Never calls signOut() — a transient miss must not destroy a valid session.
+ */
+async function fetchProfileRowWithRetry(sb: SupabaseClient, userId: string): Promise<ProfileRow> {
+  const delaysMs = [0, 250, 700, 1400]
+  let lastErr: unknown
+  for (const delay of delaysMs) {
+    if (delay > 0) await new Promise((r) => setTimeout(r, delay))
+    try {
+      return await fetchProfileRow(sb, userId)
+    } catch (err) {
+      lastErr = err
+      const msg = err instanceof Error ? err.message : ''
+      // Retry only for the "row not yet visible" family of errors.
+      if (!/not found|multiple \(or no\) rows|PGRST116/i.test(msg)) throw err
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new AuthErrorImpl('Profile not found after retries', 'PROFILE_NOT_FOUND')
+}
+
+
 export class SupabaseAuthService implements AuthService {
   private client(): SupabaseClient {
     if (!isSupabaseConfigured()) {
@@ -144,11 +183,13 @@ export class SupabaseAuthService implements AuthService {
     const { data, error } = await sb.auth.getSession()
     if (error || !data.session) return null
     try {
-      const profile = await fetchProfileRow(sb, data.session.user.id)
+      const profile = await fetchProfileRowWithRetry(sb, data.session.user.id)
       return mapProfile(profile, data.session)
-    } catch {
-      // Session exists but profile missing (trigger race). Force sign-out.
-      await sb.auth.signOut()
+    } catch (err) {
+      // Do NOT sign the user out here. A profile miss must surface, not silently
+      // destroy the session (that caused Release 0.5.1's dashboard-hang bug).
+      // eslint-disable-next-line no-console
+      console.error('[auth] getSession: profile hydration failed', err)
       return null
     }
   }
@@ -163,7 +204,7 @@ export class SupabaseAuthService implements AuthService {
       window.localStorage.setItem('screenlink.remember', remember === false ? '0' : '1')
     }
 
-    const profile = await fetchProfileRow(sb, data.session!.user.id)
+    const profile = await fetchProfileRowWithRetry(sb, data.session!.user.id)
     // Update last_sign_in_at (fire and forget)
     void sb.from('profiles').update({ last_sign_in_at: new Date().toISOString() }).eq('id', data.session!.user.id)
     return mapProfile(profile, data.session!)
@@ -193,16 +234,9 @@ export class SupabaseAuthService implements AuthService {
     // If email confirmation is required, session will be null. UI will prompt user.
     if (!data.session) return null
 
-    // Wait a beat for the DB trigger to insert the profile, then fetch.
-    try {
-      const profile = await fetchProfileRow(sb, data.session.user.id)
-      return mapProfile(profile, data.session)
-    } catch {
-      // Retry once after a short delay in case the trigger hasn't committed yet.
-      await new Promise((r) => setTimeout(r, 500))
-      const profile = await fetchProfileRow(sb, data.session.user.id)
-      return mapProfile(profile, data.session)
-    }
+    // Wait for the DB trigger to insert the profile row, then fetch (with retry).
+    const profile = await fetchProfileRowWithRetry(sb, data.session.user.id)
+    return mapProfile(profile, data.session)
   }
 
   async signInWithGoogle(redirectPath = '/dashboard'): Promise<void> {
@@ -272,9 +306,11 @@ export class SupabaseAuthService implements AuthService {
         return
       }
       try {
-        const row = await fetchProfileRow(sb, sbSession.user.id)
+        const row = await fetchProfileRowWithRetry(sb, sbSession.user.id)
         cb(mapProfile(row, sbSession))
-      } catch {
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[auth] onAuthStateChange: profile hydration failed', err)
         cb(null)
       }
     })

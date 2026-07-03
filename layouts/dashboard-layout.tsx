@@ -7,10 +7,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Authentication is enforced server-side by middleware.ts.
-  // This component only renders while waiting for the client session to hydrate.
-  const { user, loading } = useAuth()
+  // This client-side skeleton only renders while the *first* client-side auth
+  // signal is arriving. We deliberately do NOT gate on `!user` — if hydration
+  // completes without a user, the middleware will already have redirected us
+  // to /login on the next navigation, and we should let the page render so
+  // the redirect can occur naturally rather than hanging on the skeleton.
+  const { loading } = useAuth()
 
-  if (loading && !user) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="w-64 space-y-3">

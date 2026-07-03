@@ -37,19 +37,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    let receivedFirstEvent = false
+
+    // 1) Initial hydration — resolve loading regardless of outcome.
     authService
       .getSession()
       .then((s) => {
+        if (!mounted) return
+        setSession(s)
+        setLoading(false)
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('[auth] initial getSession failed:', err)
         if (mounted) {
-          setSession(s)
+          setSession(null)
           setLoading(false)
         }
       })
-      .catch(() => {
-        if (mounted) setLoading(false)
-      })
 
-    const unsub = authService.onAuthStateChange((s) => setSession(s))
+    // 2) Realtime auth events — ALSO clear loading so the UI can't stall
+    //    if Supabase fires SIGNED_IN / INITIAL_SESSION before/after the
+    //    initial promise settles.
+    const unsub = authService.onAuthStateChange((s) => {
+      if (!mounted) return
+      setSession(s)
+      // First event guarantees the SDK has told us where we stand.
+      if (!receivedFirstEvent) {
+        receivedFirstEvent = true
+        setLoading(false)
+      }
+    })
+
     return () => {
       mounted = false
       unsub()
