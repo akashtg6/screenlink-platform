@@ -776,3 +776,166 @@ release_0_5_verification:
         
         Release 0.5 is production-ready from a backend/engine perspective.
 
+
+# ============================================================================
+# RELEASE 0.5.1 — SIGN OUT BUTTON VERIFICATION
+# ============================================================================
+
+release_0_5_1:
+  status: "BLOCKED — Email confirmation required, cannot complete full e2e test"
+  date: "2026-07-03"
+  verified_by: "testing_agent"
+  
+  test_objective: |
+    Verify the "Sign out" button fix in components/dashboard/user-menu.tsx.
+    The founder reported the Sign out button was missing on production.
+    The fix adds a defensive fallback menu that ALWAYS shows a Sign out option:
+    - Full menu when profile hydrates (avatar + name + Sign out)
+    - Minimal fallback menu when profile doesn't hydrate (generic icon + "Signed in · Profile still loading…" + Sign out)
+  
+  code_review:
+    file: "components/dashboard/user-menu.tsx"
+    fix_verified: true
+    details: |
+      ✓ Lines 40-64: Defensive fallback menu renders when !user but session exists
+      ✓ Fallback shows generic person icon + minimal menu with Sign out button
+      ✓ Lines 67-106: Full menu when user profile is available, includes Sign out button
+      ✓ Both code paths include the Sign out button (lines 59-61 and 101-103)
+      ✓ handleSignOut function properly calls signOut() and navigates to /login (lines 25-34)
+  
+  test_results:
+    scenario_a_fresh_signup:
+      status: "BLOCKED"
+      reason: "Supabase email confirmation enabled"
+      steps_completed:
+        - step: "1. Navigate to landing page"
+          status: "✓ PASS"
+          screenshot: "attempt2_step1_signup_page.png"
+          notes: "Landing page loaded successfully"
+        
+        - step: "2. Navigate to /signup"
+          status: "✓ PASS"
+          screenshot: "attempt2_step1_signup_page.png"
+          notes: "Signup form rendered with all fields visible"
+        
+        - step: "3. Fill signup form"
+          status: "✓ PASS"
+          screenshot: "attempt2_step3_form_filled.png"
+          data:
+            email: "qa+test051_1783102811@screenlink.ai"
+            password: "TestPassword123!@#"
+            name: "QA Test User 051"
+            organization: "QA Test Organization"
+          notes: "All form fields filled successfully"
+        
+        - step: "4. Submit signup form"
+          status: "✓ PASS"
+          screenshot: "attempt2_step4_after_submit.png"
+          notes: |
+            Form submitted successfully. Supabase created the user but requires
+            email confirmation. Page shows "Confirm your email" message with
+            the email address displayed. Toast notification: "Check your email
+            to confirm your account."
+        
+        - step: "5-14. Dashboard and user menu testing"
+          status: "BLOCKED"
+          reason: "Cannot proceed without email confirmation"
+      
+      credentials_saved: "/app/memory/test_credentials.md"
+      
+    scenario_b_email_confirmation:
+      status: "✓ DOCUMENTED"
+      screenshot: "attempt2_step4_after_submit.png"
+      details: |
+        Email confirmation is REQUIRED by Supabase configuration.
+        The signup flow correctly handles this:
+        - User submits signup form
+        - Supabase creates user with email_confirmed=false
+        - App shows "Confirm your email" screen with clear instructions
+        - Toast notification appears: "Check your email to confirm your account."
+        - User cannot proceed to dashboard without confirming email
+      
+      confirmation_screen_elements:
+        - "✓ Green checkmark icon"
+        - "✓ 'Confirm your email' heading"
+        - "✓ Email address displayed: qa+test051_1783102811@screenlink.ai"
+        - "✓ Clear instructions to click confirmation link"
+        - "✓ 'Back to sign up' button"
+        - "✓ Toast notification at top of page"
+  
+  auth_logs_captured:
+    - "[auth] getSession resolved in 196ms, session=no"
+    - "[auth] onAuthStateChange fired at 249ms, session=no, first=true"
+    - "[auth] getSession resolved in 105ms, session=no"
+    - "[auth] onAuthStateChange fired at 113ms, session=no, first=true"
+    - "[auth] failsafe timeout — clearing loading after 10s"
+  
+  console_errors: "None"
+  
+  top_right_corner_state: "NOT TESTED (blocked by email confirmation)"
+  
+  recommendations:
+    - priority: "HIGH"
+      action: "Disable email confirmation in Supabase for testing environment"
+      details: |
+        Go to Supabase Dashboard → Authentication → Email Auth Settings
+        → Disable "Enable email confirmations"
+        This will allow immediate testing of the Sign out button fix.
+    
+    - priority: "HIGH"
+      action: "OR: Pre-seed a confirmed test user"
+      details: |
+        Use Supabase Dashboard → Authentication → Users → Add user
+        Create a user with email_confirmed=true
+        Provide credentials to testing agent for full e2e verification
+    
+    - priority: "MEDIUM"
+      action: "OR: Provide service role key for admin API"
+      details: |
+        Add SUPABASE_SERVICE_ROLE_KEY to .env (server-side only)
+        Create an admin API route that uses supabase.auth.admin.createUser
+        with email_confirm: false option
+  
+  next_steps: |
+    Once email confirmation is bypassed or a confirmed user is provided:
+    1. Complete Scenario A steps 5-14 (dashboard → user menu → sign out → sign in)
+    2. Verify user menu appears in top-right corner
+    3. Verify Sign out button is present in dropdown
+    4. Verify sign out redirects to /login
+    5. Verify cookies are cleared
+    6. Verify dashboard redirect after sign out
+    7. Verify re-login works
+    8. Verify user menu appears again after re-login
+  
+  agent_communication:
+    - agent: "testing"
+      message: |
+        RELEASE 0.5.1 VERIFICATION — BLOCKED BY EMAIL CONFIRMATION
+        
+        Code review: ✓ PASS
+        - The Sign out button fix in components/dashboard/user-menu.tsx is
+          correctly implemented
+        - Both code paths (full menu and fallback menu) include Sign out button
+        - handleSignOut function properly implemented
+        
+        UI testing: ⚠ BLOCKED
+        - Successfully navigated to signup page
+        - Successfully filled and submitted signup form
+        - Supabase created user but requires email confirmation
+        - Cannot proceed to dashboard without confirming email
+        - Cannot test user menu or Sign out button functionality
+        
+        Screenshots captured:
+        1. Signup page with form filled
+        2. Email confirmation screen
+        
+        Auth logs captured (no errors):
+        - Auth provider working correctly
+        - Session management functioning as expected
+        
+        RECOMMENDATION: Disable email confirmation in Supabase test environment
+        OR provide a pre-seeded confirmed user to complete full e2e verification.
+        
+        Test credentials saved to /app/memory/test_credentials.md for manual
+        confirmation if needed.
+
