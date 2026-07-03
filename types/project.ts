@@ -75,6 +75,11 @@ export interface Requirements {
    * `CommercialInput` from `@/commercial-engine`. Kept structurally-typed
    * so this file has no import cycle with the engines. */
   commercial?: Record<string, unknown>
+  /** Release 0.6 (Sprint 6A) — engineering workspace canvas layout persisted
+   * as JSONB. Shape matches `WorkspaceState` from
+   * `@/features/workspace/canvas`. Kept structurally-typed to avoid the
+   * canvas module (browser-only) leaking into shared types. */
+  workspace?: Record<string, unknown>
 }
 
 export interface Project {

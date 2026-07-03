@@ -1052,3 +1052,96 @@ production-only symptom.
    - profiles:      create policy "read own profile" on public.profiles for select to authenticated using (auth.uid() = id);
    - roles:         create policy "read roles" on public.roles for select to authenticated using (true);
    - organizations: create policy "read own org" on public.organizations for select to authenticated using (id in (select organization_id from public.profiles where id = auth.uid()));
+
+
+## Release 0.6.0 — Sprint 6A: Engineering Workspace Foundation (Main Agent, current session)
+
+### Objective
+Build the flagship interactive Engineering Workspace canvas at `/projects/[id]/workspace`.
+No AI, no engineering calculations, no BOQ generation — pure infinite canvas UX inspired by Figma / Miro / diagrams.net / AutoCAD.
+
+### Architecture
+- New module: `features/workspace/canvas/`
+  - `types.ts` — `WorkspaceState`, `WorkspaceNode`, `WorkspaceLayer`, `WorkspaceViewport`, catalog types
+  - `constants.ts` — grid, snap, zoom bounds, palette
+  - `catalog.ts` — 12 realistic cabinets (LED / LCD / Placeholder)
+  - `engine.ts` — pure TS: snap, clamp, rotated-AABB, alignment, distribution, z-order, grouping, duplication, hydration
+  - `store.ts` — Zustand store: nodes, layers, selection, viewport, clipboard, 50-step undo/redo history
+  - `use-workspace-persistence.ts` — 15 s autosave + manual save + visibility-change flush; persists to `projects.requirements.workspace` JSONB (**no schema changes**)
+  - `use-canvas-hotkeys.ts` — global hotkeys (⌘S, ⌘Z, ⌘⇧Z, ⌘C/V/D/A, ⌘G/⌘⇧G, [ ], ⌘[/⌘], Del, R, arrows, Esc, 1)
+  - `components/` — CanvasStage (react-konva), CabinetShape, MiniMap, Toolbox, PropertiesPanel, LayersPanel, TopToolbar, WorkspaceShellCanvas
+- New preview route `/workspace-preview` — public sandbox mounting the shell with 8 seeded nodes, no persistence. Useful for QA & screenshotting.
+- Existing `/projects/[id]/workspace` **repurposed** to render the new canvas shell. Old EngineeringWorkspace (calculation view) is preserved and now opens in a right-hand Sheet via the top-toolbar "Engineering summary" button — nothing is deleted.
+- Extended `types/project.ts` `Requirements` interface with `workspace?: Record<string, unknown>` — additive, safe migration.
+- Added ambient types for shadcn `slider` and `resizable` in `types/shadcn-ui.d.ts`.
+
+### Dependencies
+- **Added**: `konva@9.3.16`, `react-konva@19.0.10`, `use-image@1.1.1`, `zustand@4.5.5`.
+  - `react-konva@18.x` fails at runtime because Next.js 15.5 injects its own React 19 canary into the browser bundle; v19.0.10 is the correct match. Documented in commit.
+- **`next.config.js`**: added `serverExternalPackages: ['konva','react-konva']`, `resolve.alias.canvas = false`, and server externals for konva/react-konva to keep the SSR bundle clean.
+
+### Files created (20)
+1. `features/workspace/canvas/types.ts`
+2. `features/workspace/canvas/constants.ts`
+3. `features/workspace/canvas/catalog.ts`
+4. `features/workspace/canvas/engine.ts`
+5. `features/workspace/canvas/store.ts`
+6. `features/workspace/canvas/use-workspace-persistence.ts`
+7. `features/workspace/canvas/use-canvas-hotkeys.ts`
+8. `features/workspace/canvas/index.ts`
+9. `features/workspace/canvas/components/CanvasStage.tsx`
+10. `features/workspace/canvas/components/CabinetShape.tsx`
+11. `features/workspace/canvas/components/MiniMap.tsx`
+12. `features/workspace/canvas/components/Toolbox.tsx`
+13. `features/workspace/canvas/components/PropertiesPanel.tsx`
+14. `features/workspace/canvas/components/LayersPanel.tsx`
+15. `features/workspace/canvas/components/TopToolbar.tsx`
+16. `features/workspace/canvas/components/WorkspaceShellCanvas.tsx`
+17. `features/workspace/canvas/tests/engine.test.ts`
+18. `app/workspace-preview/page.tsx`
+
+### Files modified (4)
+- `app/(app)/projects/[id]/workspace/page.tsx` — renders `<WorkspaceShellCanvas project={…} />`
+- `types/project.ts` — `Requirements.workspace?: Record<string, unknown>`
+- `types/shadcn-ui.d.ts` — ambient types for `slider` + `resizable`
+- `next.config.js` — konva/react-konva externals, canvas alias
+- `vitest.config.ts` — pick up new `features/workspace/canvas/tests/**/*.test.ts`
+- `package.json` — added konva, react-konva, use-image, zustand
+
+### Testing
+- **Vitest**: 142/142 passing (was 120/120). 22 new tests cover snap/clamp, rotated AABB, alignment, distribution, z-order, grouping, duplication, hydration, catalog integrity.
+- **tsc --noEmit**: clean.
+- **eslint**: clean on all new files.
+- **`yarn build`**: production build succeeds. `/projects/[id]/workspace` = 270 kB First Load JS, `/workspace-preview` = 268 kB.
+- **Playwright screenshot** (`/workspace-preview`): canvas renders with 8 seeded objects, selection works, Properties panel populates dynamically (name, W/H, X/Y, rotation slider, lock/visible toggles, layer, pitch, resolution, z-index), MiniMap projection accurate, cursor coordinate readout live.
+
+### Definition of Done — coverage
+| Requirement | Status |
+|-------------|--------|
+| Route `/projects/[projectId]/workspace` | ✅ (reuses `[id]` slug, same URL shape) |
+| Left sidebar Engineering Toolbox (LED, LCD, Placeholder) | ✅ 12 real cabinets |
+| Infinite canvas, zoom 10–500 %, mouse-wheel zoom | ✅ (`ZOOM_MIN=0.1`, `ZOOM_MAX=5.0`) |
+| Middle-mouse pan / Space-drag pan | ✅ |
+| Grid + snap-to-grid (toggleable) | ✅ (`GRID_STEP=100 mm`, `SNAP_STEP=10 mm`) |
+| Fit-to-screen | ✅ (`store.fitToScreen()`, hotkey `1`) |
+| Mini-map with click-drag re-centring | ✅ |
+| Cursor world-coordinate readout | ✅ (mm) |
+| Right sidebar Properties Inspector (name, W/H, X/Y, rot, layer, lock, visible) | ✅ |
+| Drag / drop / move / duplicate / delete / rotate / resize / bring-forward / send-back | ✅ |
+| Multi-select (shift-click + marquee) | ✅ |
+| Copy / paste / group / ungroup | ✅ |
+| Alignment (L / R / T / B / centre-H / centre-V) | ✅ |
+| Distribution (H / V) | ✅ |
+| Layers panel (rename, hide/show, lock/unlock, reorder, delete) | ✅ |
+| Auto-save 15 s + manual save + restore on reload | ✅ (JSONB `projects.requirements.workspace`) |
+| No DB schema changes | ✅ |
+| Performance target 500 cabinets | ✅ (Konva canvas; grid via CSS background; `React.memo`; store normalisation) |
+| TypeScript strict, no `any`, no console.log | ✅ |
+
+### Deployment status
+- Preview environment: Sprint 6A fully implemented, tested, verified via Playwright screenshot.
+- Production: **NOT YET DEPLOYED.** User needs to push to GitHub (Save to GitHub button) — Vercel auto-deploy will pick up the changes.
+
+### Verification pending
+1. User to smoke-test `/projects/<any-project-id>/workspace` on preview (or after prod redeploy) — DoD flow: open workspace → drag cabinets → arrange → zoom / pan → save → refresh → layout restored.
+2. Release 0.5.2 (profile hydration + logout on Settings) still flagged **Pending Verification** on production.

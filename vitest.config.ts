@@ -14,6 +14,7 @@ export default defineConfig({
       'boq-engine/**/*.test.ts',
       'proposal-engine/**/*.test.ts',
       'excel-engine/**/*.test.ts',
+      'features/workspace/canvas/tests/**/*.test.ts',
     ],
     environment: 'node',
     globals: false,

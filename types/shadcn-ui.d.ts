@@ -459,3 +459,47 @@ declare module '@/components/ui/sonner' {
   import * as React from 'react'
   export const Toaster: React.FC<Record<string, unknown>>
 }
+
+declare module '@/components/ui/slider' {
+  import * as React from 'react'
+  export interface SliderProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'defaultValue' | 'onChange'> {
+    value?: number[]
+    defaultValue?: number[]
+    onValueChange?: (value: number[]) => void
+    onValueCommit?: (value: number[]) => void
+    min?: number
+    max?: number
+    step?: number
+    disabled?: boolean
+    orientation?: 'horizontal' | 'vertical'
+    inverted?: boolean
+    name?: string
+  }
+  export const Slider: React.ForwardRefExoticComponent<SliderProps & React.RefAttributes<HTMLSpanElement>>
+}
+
+declare module '@/components/ui/resizable' {
+  import * as React from 'react'
+  export interface ResizablePanelGroupProps extends React.HTMLAttributes<HTMLDivElement> {
+    direction: 'horizontal' | 'vertical'
+    autoSaveId?: string
+    id?: string
+  }
+  export const ResizablePanelGroup: React.FC<ResizablePanelGroupProps>
+  export interface ResizablePanelProps extends React.HTMLAttributes<HTMLDivElement> {
+    defaultSize?: number
+    minSize?: number
+    maxSize?: number
+    collapsible?: boolean
+    collapsedSize?: number
+    order?: number
+    id?: string
+  }
+  export const ResizablePanel: React.FC<ResizablePanelProps>
+  export interface ResizableHandleProps extends React.HTMLAttributes<HTMLDivElement> {
+    withHandle?: boolean
+    disabled?: boolean
+  }
+  export const ResizableHandle: React.FC<ResizableHandleProps>
+}
+

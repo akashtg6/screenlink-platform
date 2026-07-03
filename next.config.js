@@ -12,8 +12,8 @@ const nextConfig = {
   //   with the App Router page-collection phase. Externalising it keeps the
   //   library on the client-only bundle (it's only ever `await import()`ed).
   // - `exceljs` similarly has native fs polyfills that break server tracing.
-  serverExternalPackages: ['mongodb', '@react-pdf/renderer', 'exceljs'],
-  webpack(config, { dev }) {
+  serverExternalPackages: ['mongodb', '@react-pdf/renderer', 'exceljs', 'konva', 'react-konva'],
+  webpack(config, { dev, isServer }) {
     if (dev) {
       // Reduce CPU/memory from file watching
       config.watchOptions = {
@@ -21,6 +21,15 @@ const nextConfig = {
         aggregateTimeout: 300, // wait before rebuilding
         ignored: ['**/node_modules'],
       };
+    }
+    // konva's `index-node.js` imports the native `canvas` package which is
+    // only used for headless rendering \u2014 we never do that. Alias it to `false`
+    // on both server and client so webpack doesn't try to resolve it.
+    config.resolve = config.resolve || {}
+    config.resolve.alias = { ...(config.resolve.alias || {}), canvas: false }
+    if (isServer) {
+      // Extra safety: keep konva out of the server bundle entirely.
+      config.externals = [...(config.externals || []), 'konva', 'react-konva']
     }
     return config;
   },
