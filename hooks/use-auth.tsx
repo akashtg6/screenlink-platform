@@ -38,12 +38,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     let receivedFirstEvent = false
+    const t0 = performance.now()
+
+    // Hard failsafe — the loading state can NEVER outlive this budget. After
+    // 10 s we let the UI render whatever we currently know (typically null).
+    // This is a defence-in-depth guard: with the retries below, we usually
+    // clear loading in < 500 ms.
+    const failsafe = setTimeout(() => {
+      if (!mounted) return
+      // eslint-disable-next-line no-console
+      console.warn('[auth] failsafe timeout — clearing loading after 10s')
+      setLoading(false)
+    }, 10_000)
 
     // 1) Initial hydration — resolve loading regardless of outcome.
     authService
       .getSession()
       .then((s) => {
         if (!mounted) return
+        // eslint-disable-next-line no-console
+        console.info(`[auth] getSession resolved in ${(performance.now() - t0).toFixed(0)}ms, session=${s ? 'yes' : 'no'}`)
         setSession(s)
         setLoading(false)
       })
@@ -61,8 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //    initial promise settles.
     const unsub = authService.onAuthStateChange((s) => {
       if (!mounted) return
+      // eslint-disable-next-line no-console
+      console.info(`[auth] onAuthStateChange fired at ${(performance.now() - t0).toFixed(0)}ms, session=${s ? 'yes' : 'no'}, first=${!receivedFirstEvent}`)
       setSession(s)
-      // First event guarantees the SDK has told us where we stand.
       if (!receivedFirstEvent) {
         receivedFirstEvent = true
         setLoading(false)
@@ -71,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false
+      clearTimeout(failsafe)
       unsub()
     }
   }, [])

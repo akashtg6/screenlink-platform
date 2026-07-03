@@ -115,21 +115,29 @@ function mapProfile(row: ProfileRow, sbSession: SbSession): Session {
 }
 
 async function fetchProfileRow(sb: SupabaseClient, userId: string): Promise<ProfileRow> {
-  const { data, error } = await sb
-    .from('profiles')
-    .select(
-      'id, email, full_name, avatar_url, job_title, organization_id, role_id, is_active, created_at, updated_at, roles ( id, slug, name, description, hierarchy, is_system ), organizations ( id, name, slug, logo_url, website, industry, country, created_at, updated_at )',
-    )
-    .eq('id', userId)
-    .single()
+  // Hard timeout so a hung query can NEVER lock the AuthProvider.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    const { data, error } = await sb
+      .from('profiles')
+      .select(
+        'id, email, full_name, avatar_url, job_title, organization_id, role_id, is_active, created_at, updated_at, roles ( id, slug, name, description, hierarchy, is_system ), organizations ( id, name, slug, logo_url, website, industry, country, created_at, updated_at )',
+      )
+      .eq('id', userId)
+      .abortSignal(controller.signal)
+      .single()
 
-  if (error || !data) {
-    throw new AuthErrorImpl(
-      error?.message || 'Profile not found. The signup trigger may not have run yet.',
-      'PROFILE_NOT_FOUND',
-    )
+    if (error || !data) {
+      throw new AuthErrorImpl(
+        error?.message || 'Profile not found. The signup trigger may not have run yet.',
+        error?.code === 'PGRST116' ? 'PGRST116' : 'PROFILE_NOT_FOUND',
+      )
+    }
+    return data as unknown as ProfileRow
+  } finally {
+    clearTimeout(timeout)
   }
-  return data as unknown as ProfileRow
 }
 
 /**
