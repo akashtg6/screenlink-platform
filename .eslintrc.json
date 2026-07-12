@@ -1,0 +1,17 @@
+{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["engines/**/*.ts", "engines/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            { "group": ["react", "react-dom", "next", "next/*"], "message": "engines/** must be pure TypeScript. No React or Next.js imports allowed." },
+            { "group": ["@/features/*", "@/components/*", "@/hooks/*", "@/layouts/*", "@/app/*"], "message": "engines/** cannot depend on UI features. Engines are UI-agnostic." },
+            { "group": ["konva", "react-konva"], "message": "engines/** cannot depend on the renderer. Use IRenderer interface instead." }
+          ]
+        }]
+      }
+    }
+  ]
+}

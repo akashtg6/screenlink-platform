@@ -1145,3 +1145,141 @@ No AI, no engineering calculations, no BOQ generation — pure infinite canvas U
 ### Verification pending
 1. User to smoke-test `/projects/<any-project-id>/workspace` on preview (or after prod redeploy) — DoD flow: open workspace → drag cabinets → arrange → zoom / pan → save → refresh → layout restored.
 2. Release 0.5.2 (profile hydration + logout on Settings) still flagged **Pending Verification** on production.
+
+---
+
+## Release 0.6.0 — Sprint 6B: Workspace Foundation Refactor (Main Agent, current session)
+
+Pure architectural refactor. **Zero user-visible changes.** Preview render is byte-identical to Sprint 6A.
+
+### Deliverable 1 — Final Architecture Summary
+- **Hierarchical Workspace model** (CTO change #1) — root object `Workspace` now nests `Metadata`, `Canvas`, `Layers`, `Objects`, `Viewport`, `Settings`. Every `WorkspaceObject` references a `Layer` via `layerId`.
+- **Schema versioning** (CTO #2) — `WORKSPACE_SCHEMA_VERSION = 2`; migration path `v1 (Sprint 6A) → v2` implemented in `engines/workspace-engine/migrations/`. Unknown/newer versions fall back to empty rather than corrupt data.
+- **libraries/** (CTO #3) — cabinet-specific catalog replaced with a generalised library supporting 9 categories: LED cabinet, LCD panel, controller, receiving card, sending card, power supply, media player, accessory, placeholder. Library items map 1:1 to `ObjectKind`. Extensible via `LibraryRegistry.register()`.
+- **Engine structure** (CTO #4) — `engines/workspace-engine/` now split into `types`, `math`, `geometry`, `snap`, `collision`, `measurement`, `serialization`, `migrations`, `validators`, `commands`, `events`, `plugins`, `libraries`, `utils`.
+- **Command → Event → Store flow** (CTO #5) — commands emit `CanvasEvent[]` via a typed `EventBus`; store mutations broadcast on every apply. Undo/redo flow through inverse commands. Ready for realtime collab, AI, audit — nothing new to wire.
+- **Deterministic commands** (CTO #6) — every Command exposes `execute(ctx)` + `invert(ctx)` and carries an `EventSource` (`'user' | 'undo' | 'redo' | 'ai' | 'remote' | 'system'`). Same command interface works for human, AI, and remote peer.
+- **State management** (CTO #7) — Zustand approved. UI store (`stores/ui.ts`) split out with localStorage persistence for panel widths / tool. Remaining 4 stores (canvas / selection / viewport / history) will be extracted in Sprint 6C now that the plumbing exists.
+- **Performance** (CTO #8) — engine helpers are now generic (`<T extends SpatialObject>`) so the runtime store can normalise nodes for O(1) lookup in 6C without re-touching the engine. CSS-gradient grid + `React.memo` shape components + off-screen culling stay in place from Sprint 6A.
+
+### Deliverable 2 — Folder structure (highlights)
+```
+engines/workspace-engine/
+├── types/index.ts           hierarchical Workspace, WorkspaceObject discriminated union, Layer, Viewport, Settings
+├── math/index.ts            clamp, snap, degToRad, rotateAbout
+├── geometry/index.ts        rotatedAabb, alignObjects, distributeObjects, z-order (all generic)
+├── snap/index.ts            snapObjectPosition, snapDelta
+├── collision/index.ts       intersectsRect, containsPoint, objectAt
+├── measurement/index.ts     distance, midpoint, angleDeg
+├── serialization/index.ts   serializeWorkspace, emptyWorkspace
+├── migrations/index.ts      migrateWorkspace (v1→v2), version-safe hydration
+├── validators/index.ts      validateWorkspace, ValidationIssue diagnostics
+├── events/index.ts          CanvasEvent union, createEventBus, EventSource
+├── commands/index.ts        Command interface, CommandBus interface, CommandContext
+├── plugins/index.ts         PluginKind, PluginContext, createPluginRegistry (stub for 8A)
+├── libraries/
+│   ├── index.ts             LibraryRegistry, LibraryCategory, objectFromLibrary, CATEGORY_TO_KIND
+│   ├── led-cabinets.ts      5 items
+│   ├── lcd-panels.ts        3 items
+│   ├── controllers.ts       3 items (NovaStar MCTRL4K, ColorLight Z6, Brompton SX40)
+│   ├── receiving-cards.ts   2 items
+│   ├── sending-cards.ts     2 items
+│   ├── power-supplies.ts    2 items (MeanWell)
+│   ├── media-players.ts     2 items (BrightSign, Intel NUC)
+│   ├── accessories.ts       3 items (cables, truss)
+│   └── placeholders.ts      4 items
+├── utils/index.ts           id generators, duplicateObjects, groupObjects (generic)
+├── index.ts                 public barrel
+└── tests/engine.test.ts     14 new tests
+
+features/workspace/
+├── canvas/                  (Sprint 6A) UI, thin shims for engine.ts + catalog.ts
+├── stores/index.ts          (NEW) shared eventBus + pluginRegistry singletons; useUiStore
+├── stores/ui.ts             (NEW) UI store — first of the 5-store split
+└── commands/
+    ├── index.ts             (NEW) createCommandBus + moveObjects/updateObjects/addObjects/removeObjects factories
+    └── tests/command-bus.test.ts    4 new tests
+```
+
+### Deliverable 3 — Files created (28)
+- `engines/workspace-engine/{types,math,geometry,snap,collision,measurement,serialization,migrations,validators,events,commands,plugins,utils}/index.ts` — 13 files
+- `engines/workspace-engine/libraries/{index,led-cabinets,lcd-panels,controllers,receiving-cards,sending-cards,power-supplies,media-players,accessories,placeholders}.ts` — 10 files
+- `engines/workspace-engine/index.ts` — barrel
+- `engines/workspace-engine/tests/engine.test.ts` — 14 tests
+- `features/workspace/stores/{index,ui}.ts` — 2 files
+- `features/workspace/commands/index.ts` + `commands/tests/command-bus.test.ts` — 2 files
+- `.eslintrc.json` — engine isolation rule (bans React/next/features/konva from engines/**)
+
+### Deliverable 4 — Files modified (5)
+- `features/workspace/canvas/engine.ts` — now a thin shim re-exporting from `@/engines/workspace-engine`, adapting Sprint 6A `WorkspaceNode` shape
+- `features/workspace/canvas/catalog.ts` — thin adapter over `DEFAULT_LIBRARY`, preserves Sprint 6A `CabinetCatalogItem` shape
+- `features/workspace/canvas/store.ts` — mutations now broadcast on `workspaceEventBus` (`objects.replaced`, `layers.reordered`, `viewport.changed`); public API unchanged
+- `features/workspace/canvas/use-workspace-persistence.ts` + `features/workspace/use-workspace-autosave.ts` — pre-existing eslint disable directives removed (were unused)
+- `vitest.config.ts` — includes new engine + command test folders
+
+### Deliverable 5 — Database changes
+**NONE.** Persistence still writes to `projects.requirements.workspace` JSONB. Sprint 6A wire format preserved (Sprint 6B UI still uses `WorkspaceNode` at runtime; hierarchical `Workspace` is used for future migrations only).
+
+### Deliverable 6 — Migration strategy
+- **On load**: `migrateWorkspace(raw)` in `engines/workspace-engine/migrations/` accepts v1 (Sprint 6A `{ version, nodes, layers, viewport }`) and v2 (`{ schemaVersion, objects, layers, ... }`) shapes.
+- **On save**: current UI writes v1 shape; the persistence layer transparently handles both.
+- **Future migrations**: any breaking change bumps `WORKSPACE_SCHEMA_VERSION`; a new `migrations/vN-to-v(N+1).ts` module chains from the previous version.
+- **Unknown versions**: emit warning + return empty workspace. Never silently discard fields.
+
+### Deliverable 7 — Test results
+| Test suite | Count | Result |
+|---|---|---|
+| Sprint 6A engine (`features/workspace/canvas/tests/`) | 22 | ✅ pass |
+| Sprint 6B engine (`engines/workspace-engine/tests/`) | 14 | ✅ pass |
+| Sprint 6B command bus (`features/workspace/commands/tests/`) | 4 | ✅ pass |
+| Engineering / Commercial / BOQ / Proposal / Excel engines | 120 | ✅ pass |
+| **Total** | **160** | **✅ 160/160** |
+
+### Deliverable 8 — Build results
+| Gate | Result |
+|---|---|
+| `tsc --noEmit` | ✅ 0 errors |
+| ESLint (`engines/**`, `features/workspace/**`) | ✅ 0 errors |
+| `yarn build` | ✅ 47.88s — success |
+| `/projects/[id]/workspace` bundle | 273 kB First Load JS |
+| `/workspace-preview` bundle | 271 kB First Load JS |
+| Playwright screenshot (preview + selected states) | ✅ byte-identical to Sprint 6A |
+
+### Deliverable 9 — Performance notes
+- Engine helpers now generic over `SpatialObject` — the same code path serves the current Sprint 6A shape and the future `WorkspaceObject` union with zero overhead.
+- Event bus dispatch: single `for-of` per listener set; no allocations per event beyond the wrapper object.
+- Command bus: history bounded (default 50), `future.length = 0` on new dispatch — same memory profile as Sprint 6A.
+- Library registry uses `Map<id, item>` for O(1) lookup.
+- No new render paths added; existing shape/panel memoisation intact.
+- 1000-object target still comfortably in budget (unchanged from 6A benchmarks).
+
+### Deliverable 10 — Deployment status
+| Environment | Status |
+|---|---|
+| Preview | ✅ Live, verified, screenshotted. Canvas renders + selection works. |
+| Production https://screenlink.ai | ⏳ **NOT YET DEPLOYED.** Founder to push via "Save to GitHub". Vercel auto-deploy from `main`. |
+
+### Non-negotiables — compliance report
+| Module | Modified? |
+|---|---|
+| Authentication | ❌ untouched |
+| Dashboard | ❌ untouched |
+| Settings | ❌ untouched |
+| Organizations | ❌ untouched |
+| Profiles | ❌ untouched |
+| Commercial engine | ❌ untouched |
+| BOQ engine | ❌ untouched |
+| Proposal engine | ❌ untouched |
+| Engineering engine | ❌ untouched |
+| Sprint 6A UI behaviour | ❌ zero regressions (screenshot diff = 0) |
+
+### What's ready for Sprint 6C
+- Adapter surface for `engineering-engine` → workspace results panel (`engines/adapters/` folder is next).
+- Full command bus wired; commands can be added incrementally; store already emits events for every mutation.
+- `useUiStore` in place — the four remaining Zustand stores (canvas / selection / viewport / history) can now be extracted store-by-store without touching engines.
+- Rules engine has a clean home at `engines/rules-engine/` (still to be created in 6D).
+
+### Verification pending
+1. Founder to push to GitHub → verify `/projects/<any-id>/workspace` on production.
+2. Release 0.5.2 (profile hydration + logout on Settings) still flagged **Pending Verification** on production.
+

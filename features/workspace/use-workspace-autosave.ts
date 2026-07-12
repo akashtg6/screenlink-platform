@@ -42,7 +42,6 @@ export function useWorkspaceAutosave() {
         setStatus('saved')
         setLastSavedAt(new Date())
       } catch (e) {
-        // eslint-disable-next-line no-console
         console.error('workspace autosave failed', e)
         setStatus('error')
       }

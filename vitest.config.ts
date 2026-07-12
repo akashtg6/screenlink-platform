@@ -15,6 +15,8 @@ export default defineConfig({
       'proposal-engine/**/*.test.ts',
       'excel-engine/**/*.test.ts',
       'features/workspace/canvas/tests/**/*.test.ts',
+      'features/workspace/commands/tests/**/*.test.ts',
+      'engines/workspace-engine/tests/**/*.test.ts',
     ],
     environment: 'node',
     globals: false,

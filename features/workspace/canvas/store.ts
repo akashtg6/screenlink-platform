@@ -15,6 +15,8 @@
 
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
+import { workspaceEventBus } from '@/features/workspace/stores'
+import { newEventId } from '@/engines/workspace-engine'
 import type {
   CabinetCatalogItem,
   WorkspaceLayer,
@@ -160,7 +162,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
   subscribeWithSelector((set, get) => {
     const seed = emptyWorkspaceState()
 
-    /** Apply a mutation with history + dirty tracking. */
+    /** Apply a mutation with history + dirty tracking + event bus broadcast. */
     const apply = (mutate: (draft: { nodes: WorkspaceNode[]; layers: WorkspaceLayer[] }) => void) => {
       const { nodes, layers, past } = get()
       const before = snapshot(nodes, layers)
@@ -168,13 +170,32 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       mutate(draft)
       const nextPast = [...past, before]
       if (nextPast.length > HISTORY_LIMIT) nextPast.shift()
+      const nextNodes = normaliseZIndex(draft.nodes)
       set({
-        nodes: normaliseZIndex(draft.nodes),
+        nodes: nextNodes,
         layers: draft.layers,
         past: nextPast,
         future: [],
         dirty: true,
       })
+      // Sprint 6B \u2014 broadcast on every mutation so future subscribers
+      // (collaboration, analytics, AI, audit) can hook in without touching
+      // the store. Kept as coarse `objects.replaced` / `layers.reordered`
+      // for now; Sprint 6C will emit fine-grained events per command.
+      workspaceEventBus.emit({
+        id: newEventId(),
+        timestamp: new Date().toISOString(),
+        source: 'user',
+        event: { type: 'objects.replaced', payload: { objects: nextNodes as unknown as import('@/engines/workspace-engine').WorkspaceObject[] } },
+      })
+      if (before.layers !== draft.layers) {
+        workspaceEventBus.emit({
+          id: newEventId(),
+          timestamp: new Date().toISOString(),
+          source: 'user',
+          event: { type: 'layers.reordered', payload: { layers: draft.layers } },
+        })
+      }
     }
 
     const primary = seed.layers[0]
@@ -478,12 +499,17 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
       setViewport(v) {
         const { viewport } = get()
-        set({
-          viewport: {
-            x: v.x ?? viewport.x,
-            y: v.y ?? viewport.y,
-            scale: v.scale != null ? clampZoom(v.scale) : viewport.scale,
-          },
+        const next = {
+          x: v.x ?? viewport.x,
+          y: v.y ?? viewport.y,
+          scale: v.scale != null ? clampZoom(v.scale) : viewport.scale,
+        }
+        set({ viewport: next })
+        workspaceEventBus.emit({
+          id: newEventId(),
+          timestamp: new Date().toISOString(),
+          source: 'user',
+          event: { type: 'viewport.changed', payload: { viewport: next } },
         })
       },
 

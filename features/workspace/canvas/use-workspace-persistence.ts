@@ -68,7 +68,6 @@ export function useWorkspacePersistence(project: Project): UseWorkspacePersisten
       setStatus('saved')
     } catch (e) {
       setStatus('error')
-      // eslint-disable-next-line no-console
       console.error('[workspace] save failed', e)
       toast.error('Could not save workspace layout')
     } finally {
