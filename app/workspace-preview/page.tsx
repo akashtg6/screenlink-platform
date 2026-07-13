@@ -16,6 +16,10 @@ import { PropertiesPanel } from '@/features/workspace/canvas/components/Properti
 import { LayersPanel } from '@/features/workspace/canvas/components/LayersPanel'
 import { TopToolbar } from '@/features/workspace/canvas/components/TopToolbar'
 import { MiniMap } from '@/features/workspace/canvas/components/MiniMap'
+import { Rulers, RULER_THICKNESS_PX } from '@/features/workspace/canvas/components/Rulers'
+import { ZoomIndicator } from '@/features/workspace/canvas/components/ZoomIndicator'
+import { BottomStatusBar } from '@/features/workspace/canvas/components/BottomStatusBar'
+import { useSpacePan } from '@/features/workspace/canvas/use-space-pan'
 import { useWorkspaceStore } from '@/features/workspace/canvas'
 
 const CanvasStage = dynamic(
@@ -32,10 +36,17 @@ export default function WorkspacePreviewPage() {
 
   const nodes = useWorkspaceStore((s) => s.nodes)
   const viewport = useWorkspaceStore((s) => s.viewport)
+  const selectedIds = useWorkspaceStore((s) => s.selectedIds)
+  const rulersVisible = useWorkspaceStore((s) => s.rulersVisible)
+  const minimapVisible = useWorkspaceStore((s) => s.minimapVisible)
   const setViewport = useWorkspaceStore((s) => s.setViewport)
   const hydrate = useWorkspaceStore((s) => s.hydrate)
   const dirty = useWorkspaceStore((s) => s.dirty)
   const markSaved = useWorkspaceStore((s) => s.markSaved)
+  const [cursorWorld, setCursorWorld] = React.useState<{ x: number; y: number } | null>(null)
+
+  // Sprint 7 — Space-drag panning
+  useSpacePan()
 
   // Hydrate a demo layout once on mount.
   React.useEffect(() => {
@@ -112,6 +123,7 @@ export default function WorkspacePreviewPage() {
         dirty={dirty}
         onSave={noop}
         onFit={fit}
+        onZoomToSelection={noop}
         onOpenSummary={noop}
       />
       <div className="flex-1 min-h-0">
@@ -121,22 +133,51 @@ export default function WorkspacePreviewPage() {
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={62} minSize={40}>
-            <div ref={containerRef} className="relative h-full w-full">
-              <CanvasStage onReady={(api) => { canvasApi.current = api }} />
-              <div className="pointer-events-none absolute bottom-3 right-3">
-                <div className="pointer-events-auto">
-                  <MiniMap
-                    nodes={nodes}
-                    viewport={viewport}
-                    containerWidth={containerSize.w}
-                    containerHeight={containerSize.h}
-                    onCentreOn={centreOn}
+            <div className="flex h-full flex-col">
+              <div ref={containerRef} className="relative flex-1 min-h-0">
+                {rulersVisible && (
+                  <Rulers
+                    width={Math.max(0, containerSize.w - RULER_THICKNESS_PX)}
+                    height={Math.max(0, containerSize.h - RULER_THICKNESS_PX)}
+                    cursorWorld={cursorWorld}
+                  />
+                )}
+                <div
+                  className="absolute inset-0"
+                  style={rulersVisible ? { left: RULER_THICKNESS_PX, top: RULER_THICKNESS_PX, right: 0, bottom: 0 } : undefined}
+                >
+                  <CanvasStage
+                    onReady={(api) => { canvasApi.current = api }}
+                    onCursorChange={setCursorWorld}
                   />
                 </div>
+                {minimapVisible && (
+                  <div className="pointer-events-none absolute bottom-3 right-3">
+                    <div className="pointer-events-auto">
+                      <MiniMap
+                        nodes={nodes}
+                        viewport={viewport}
+                        containerWidth={containerSize.w}
+                        containerHeight={containerSize.h}
+                        onCentreOn={centreOn}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="pointer-events-none absolute bottom-3 left-3">
+                  <div className="pointer-events-auto">
+                    <ZoomIndicator
+                      containerWidth={containerSize.w}
+                      containerHeight={containerSize.h}
+                      hasSelection={selectedIds.length > 0}
+                    />
+                  </div>
+                </div>
+                <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-border/60 bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground backdrop-blur">
+                  <span className="mr-2 text-foreground">{nodes.length}</span>objects
+                </div>
               </div>
-              <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-border/60 bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground backdrop-blur">
-                <span className="mr-2 text-foreground">{nodes.length}</span>objects
-              </div>
+              <BottomStatusBar cursor={cursorWorld} />
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle />

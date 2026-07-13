@@ -19,9 +19,13 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { LayersPanel } from './LayersPanel'
 import { TopToolbar } from './TopToolbar'
 import { MiniMap } from './MiniMap'
+import { Rulers, RULER_THICKNESS_PX } from './Rulers'
+import { ZoomIndicator } from './ZoomIndicator'
+import { BottomStatusBar } from './BottomStatusBar'
 import { useWorkspaceStore } from '../store'
 import { useWorkspacePersistence } from '../use-workspace-persistence'
 import { useCanvasHotkeys } from '../use-canvas-hotkeys'
+import { useSpacePan } from '../use-space-pan'
 import { WorkspaceProvider } from '../../workspace-provider'
 import { EngineeringWorkspace } from '../../engineering-workspace'
 import { toast } from 'sonner'
@@ -48,9 +52,16 @@ export function WorkspaceShellCanvas({ project }: Props) {
 
   const nodes = useWorkspaceStore((s) => s.nodes)
   const viewport = useWorkspaceStore((s) => s.viewport)
+  const selectedIds = useWorkspaceStore((s) => s.selectedIds)
+  const minimapVisible = useWorkspaceStore((s) => s.minimapVisible)
+  const rulersVisible  = useWorkspaceStore((s) => s.rulersVisible)
   const setViewport = useWorkspaceStore((s) => s.setViewport)
 
   const [showSummary, setShowSummary] = React.useState(false)
+  const [cursorWorld, setCursorWorld] = React.useState<{ x: number; y: number } | null>(null)
+
+  // Sprint 7 — global Space-key tracker for drag-pan mode.
+  useSpacePan()
 
   const handleSave = React.useCallback(async () => {
     await saveNow()
@@ -63,7 +74,11 @@ export function WorkspaceShellCanvas({ project }: Props) {
     canvasApi.current?.fitToScreen()
   }, [])
 
-  useCanvasHotkeys({ onSave: handleSave, onFit: handleFit })
+  const handleZoomToSelection = React.useCallback(() => {
+    useWorkspaceStore.getState().zoomToSelection(containerSize.w, containerSize.h)
+  }, [containerSize.w, containerSize.h])
+
+  useCanvasHotkeys({ onSave: handleSave, onFit: handleFit, onZoomToSelection: handleZoomToSelection })
 
   // Track the canvas container size for the minimap viewport rectangle.
   React.useEffect(() => {
@@ -94,6 +109,7 @@ export function WorkspaceShellCanvas({ project }: Props) {
         dirty={dirty}
         onSave={handleSave}
         onFit={handleFit}
+        onZoomToSelection={handleZoomToSelection}
         onOpenSummary={() => setShowSummary(true)}
       />
 
@@ -107,21 +123,57 @@ export function WorkspaceShellCanvas({ project }: Props) {
 
           {/* Centre: Canvas */}
           <ResizablePanel defaultSize={62} minSize={40}>
-            <div ref={containerRef} className="relative h-full w-full">
-              <CanvasStage onReady={(api) => { canvasApi.current = api }} />
-              {/* MiniMap floating in the bottom-right corner */}
-              <div className="pointer-events-none absolute bottom-3 right-3">
-                <div className="pointer-events-auto">
-                  <MiniMap
-                    nodes={nodes}
-                    viewport={viewport}
-                    containerWidth={containerSize.w}
-                    containerHeight={containerSize.h}
-                    onCentreOn={centreViewportOn}
+            <div className="flex h-full flex-col">
+              <div ref={containerRef} className="relative flex-1 min-h-0">
+                {/* Rulers overlay (top + left) */}
+                {rulersVisible && (
+                  <Rulers
+                    width={Math.max(0, containerSize.w - RULER_THICKNESS_PX)}
+                    height={Math.max(0, containerSize.h - RULER_THICKNESS_PX)}
+                    cursorWorld={cursorWorld}
+                  />
+                )}
+                <div
+                  className="absolute inset-0"
+                  style={rulersVisible ? {
+                    left:  RULER_THICKNESS_PX,
+                    top:   RULER_THICKNESS_PX,
+                    right: 0,
+                    bottom: 0,
+                  } : undefined}
+                >
+                  <CanvasStage
+                    onReady={(api) => { canvasApi.current = api }}
+                    onCursorChange={setCursorWorld}
                   />
                 </div>
+                {/* MiniMap floating in the bottom-right corner */}
+                {minimapVisible && (
+                  <div className="pointer-events-none absolute bottom-3 right-3">
+                    <div className="pointer-events-auto">
+                      <MiniMap
+                        nodes={nodes}
+                        viewport={viewport}
+                        containerWidth={containerSize.w}
+                        containerHeight={containerSize.h}
+                        onCentreOn={centreViewportOn}
+                      />
+                    </div>
+                  </div>
+                )}
+                {/* Zoom indicator (bottom-left) */}
+                <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-2">
+                  <div className="pointer-events-auto">
+                    <ZoomIndicator
+                      containerWidth={containerSize.w}
+                      containerHeight={containerSize.h}
+                      hasSelection={selectedIds.length > 0}
+                    />
+                  </div>
+                </div>
+                <NodeCounter />
               </div>
-              <NodeCounter />
+              <BottomStatusBar cursor={cursorWorld} />
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle />

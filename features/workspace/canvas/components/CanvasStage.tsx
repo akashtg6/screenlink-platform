@@ -9,32 +9,39 @@
  */
 
 import * as React from 'react'
-import { Stage, Layer, Rect, Transformer } from 'react-konva'
+import { Stage, Layer, Rect, Transformer, Group } from 'react-konva'
 import type Konva from 'konva'
 import { useWorkspaceStore } from '../store'
 import { findCatalog } from '../catalog'
 import {
-  GRID_MAJOR, GRID_MAJOR_EVERY, GRID_MINOR, GRID_STEP,
-  MARQUEE_FILL, MARQUEE_STROKE, SNAP_STEP, ZOOM_STEP,
+  GRID_MAJOR, GRID_MAJOR_EVERY, GRID_MINOR,
+  MARQUEE_FILL, MARQUEE_STROKE, SELECTION_STROKE, SNAP_STEP, ZOOM_STEP,
 } from '../constants'
 import { intersectsRect, snapValue } from '../engine'
+import { pickGridOpacity, pickGridStep, screenToWorld, isMeaningfulMarquee } from '../viewport-math'
 import type { WorkspaceNode } from '../types'
 import { CabinetShape } from './CabinetShape'
 
 interface Props {
   onReady?: (api: { fitToScreen: () => void }) => void
+  /** Reports cursor world-position upward for rulers / status-bar. */
+  onCursorChange?: (world: { x: number; y: number } | null) => void
+  /** Reports container size upward (once) — used by the zoom indicator. */
+  onSize?: (w: number, h: number) => void
 }
 
 interface Size { w: number; h: number }
 
-export default function CanvasStage({ onReady }: Props) {
+export default function CanvasStage({ onReady, onCursorChange, onSize }: Props) {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const stageRef = React.useRef<Konva.Stage | null>(null)
   const transformerRef = React.useRef<Konva.Transformer | null>(null)
+  const antsAnimRef = React.useRef<number | null>(null)
+  const antsGroupRef = React.useRef<Konva.Group | null>(null)
 
   const [size, setSize] = React.useState<Size>({ w: 800, h: 600 })
   const [marquee, setMarquee] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null)
-  const marqueeStart = React.useRef<{ x: number; y: number } | null>(null)
+  const marqueeStart = React.useRef<{ x: number; y: number; sx: number; sy: number } | null>(null)
   const [isPanning, setIsPanning] = React.useState(false)
   const panStart = React.useRef<{ x: number; y: number; vx: number; vy: number } | null>(null)
   const [cursorWorld, setCursorWorld] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -45,6 +52,8 @@ export default function CanvasStage({ onReady }: Props) {
   const viewport = useWorkspaceStore((s) => s.viewport)
   const gridVisible = useWorkspaceStore((s) => s.gridVisible)
   const snapEnabled = useWorkspaceStore((s) => s.snapEnabled)
+  const canvasBackground = useWorkspaceStore((s) => s.canvasBackground)
+  const spacePressed = useWorkspaceStore((s) => s.spacePressed)
   const setViewport = useWorkspaceStore((s) => s.setViewport)
   const zoomAt = useWorkspaceStore((s) => s.zoomAt)
   const selectOne = useWorkspaceStore((s) => s.selectOne)
@@ -53,6 +62,7 @@ export default function CanvasStage({ onReady }: Props) {
   const updateNode = useWorkspaceStore((s) => s.updateNode)
   const addFromCatalog = useWorkspaceStore((s) => s.addFromCatalog)
   const fitToScreen = useWorkspaceStore((s) => s.fitToScreen)
+  const setHover = useWorkspaceStore((s) => s.setHover)
 
   const lockedLayers = React.useMemo(
     () => new Set(layers.filter((l) => l.locked || !l.visible).map((l) => l.id)),
@@ -70,12 +80,14 @@ export default function CanvasStage({ onReady }: Props) {
     const ro = new ResizeObserver(() => {
       const rect = el.getBoundingClientRect()
       setSize({ w: rect.width, h: rect.height })
+      onSize?.(rect.width, rect.height)
     })
     ro.observe(el)
     const rect = el.getBoundingClientRect()
     setSize({ w: rect.width, h: rect.height })
+    onSize?.(rect.width, rect.height)
     return () => ro.disconnect()
-  }, [])
+  }, [onSize])
 
   /* -------- report API for parent (Fit To Screen) ------------------ */
   React.useEffect(() => {
@@ -136,7 +148,7 @@ export default function CanvasStage({ onReady }: Props) {
   const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const evt = e.evt
     const isMiddle = evt.button === 1
-    const isSpacePan = evt.button === 0 && (evt.getModifierState?.('Space') || false)
+    const isSpacePan = evt.button === 0 && spacePressed
 
     // Pan when middle-mouse or space-drag
     if (isMiddle || isSpacePan) {
@@ -149,24 +161,19 @@ export default function CanvasStage({ onReady }: Props) {
     if (e.target === e.target.getStage()) {
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
-      const px = evt.clientX - rect.left
-      const py = evt.clientY - rect.top
-      const worldX = (px - viewport.x) / viewport.scale
-      const worldY = (py - viewport.y) / viewport.scale
-      marqueeStart.current = { x: worldX, y: worldY }
-      setMarquee({ x: worldX, y: worldY, w: 0, h: 0 })
-      if (!evt.shiftKey) clearSelection()
+      const world = screenToWorld(evt.clientX, evt.clientY, rect, viewport)
+      marqueeStart.current = { x: world.x, y: world.y, sx: evt.clientX - rect.left, sy: evt.clientY - rect.top }
+      setMarquee({ x: world.x, y: world.y, w: 0, h: 0 })
+      if (!evt.shiftKey && !evt.metaKey && !evt.ctrlKey) clearSelection()
     }
   }
 
   const handleStageMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
-    const px = e.evt.clientX - rect.left
-    const py = e.evt.clientY - rect.top
-    const worldX = (px - viewport.x) / viewport.scale
-    const worldY = (py - viewport.y) / viewport.scale
-    setCursorWorld({ x: worldX, y: worldY })
+    const world = screenToWorld(e.evt.clientX, e.evt.clientY, rect, viewport)
+    setCursorWorld(world)
+    onCursorChange?.(world)
 
     if (isPanning) {
       doPan(e.evt.clientX, e.evt.clientY)
@@ -175,10 +182,10 @@ export default function CanvasStage({ onReady }: Props) {
     if (marqueeStart.current) {
       const start = marqueeStart.current
       setMarquee({
-        x: Math.min(start.x, worldX),
-        y: Math.min(start.y, worldY),
-        w: Math.abs(worldX - start.x),
-        h: Math.abs(worldY - start.y),
+        x: Math.min(start.x, world.x),
+        y: Math.min(start.y, world.y),
+        w: Math.abs(world.x - start.x),
+        h: Math.abs(world.y - start.y),
       })
     }
   }
@@ -186,11 +193,14 @@ export default function CanvasStage({ onReady }: Props) {
   const handleStageMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (isPanning) { endPan(); return }
     if (marqueeStart.current && marquee) {
-      // Threshold: treat tiny marquees as a click (already cleared selection).
-      if (marquee.w > 4 && marquee.h > 4) {
-        const rect = { minX: marquee.x, minY: marquee.y, maxX: marquee.x + marquee.w, maxY: marquee.y + marquee.h }
+      // Use *screen-space* threshold so it feels the same at every zoom level.
+      const rect = containerRef.current?.getBoundingClientRect()
+      const dxScreen = rect ? (e.evt.clientX - rect.left) - marqueeStart.current.sx : marquee.w * viewport.scale
+      const dyScreen = rect ? (e.evt.clientY - rect.top)  - marqueeStart.current.sy : marquee.h * viewport.scale
+      if (isMeaningfulMarquee(dxScreen, dyScreen)) {
+        const rectWorld = { minX: marquee.x, minY: marquee.y, maxX: marquee.x + marquee.w, maxY: marquee.y + marquee.h }
         const hitIds = nodes
-          .filter((n) => n.visible && !hiddenLayers.has(n.layerId) && intersectsRect(n, rect))
+          .filter((n) => n.visible && !hiddenLayers.has(n.layerId) && intersectsRect(n, rectWorld))
           .map((n) => n.id)
         selectMany(e.evt.shiftKey ? [...selectedIds, ...hitIds] : hitIds)
       }
@@ -251,20 +261,58 @@ export default function CanvasStage({ onReady }: Props) {
   }
 
   /* -------- grid style -------------------------------------------- */
-  const gridSize = GRID_STEP * viewport.scale
+  const worldStep = pickGridStep(viewport.scale)
+  const gridSize = worldStep * viewport.scale
   const majorSize = gridSize * GRID_MAJOR_EVERY
+  const gridOpacity = pickGridOpacity(viewport.scale)
+  const bgColour = canvasBackground === 'light' ? '#f7f9fc'
+                 : canvasBackground === 'blueprint' ? '#0a1a2f'
+                 : '#0b0f16'
+  const gridMinor = canvasBackground === 'light' ? '#e2e8f0'
+                  : canvasBackground === 'blueprint' ? '#1e3a5f'
+                  : GRID_MINOR
+  const gridMajor = canvasBackground === 'light' ? '#cbd5e1'
+                  : canvasBackground === 'blueprint' ? '#3b82f6'
+                  : GRID_MAJOR
+
   const gridStyle: React.CSSProperties = gridVisible ? {
     backgroundImage: [
-      `linear-gradient(to right, ${GRID_MINOR} 1px, transparent 1px)`,
-      `linear-gradient(to bottom, ${GRID_MINOR} 1px, transparent 1px)`,
-      `linear-gradient(to right, ${GRID_MAJOR} 1px, transparent 1px)`,
-      `linear-gradient(to bottom, ${GRID_MAJOR} 1px, transparent 1px)`,
+      `linear-gradient(to right, ${gridMinor} 1px, transparent 1px)`,
+      `linear-gradient(to bottom, ${gridMinor} 1px, transparent 1px)`,
+      `linear-gradient(to right, ${gridMajor} 1px, transparent 1px)`,
+      `linear-gradient(to bottom, ${gridMajor} 1px, transparent 1px)`,
     ].join(', '),
     backgroundSize: `${gridSize}px ${gridSize}px, ${gridSize}px ${gridSize}px, ${majorSize}px ${majorSize}px, ${majorSize}px ${majorSize}px`,
     backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+    opacity: gridOpacity,
   } : {}
 
   /* -------- render ------------------------------------------------- */
+  /* -------- marching ants animation ------------------------------- */
+  React.useEffect(() => {
+    const group = antsGroupRef.current
+    if (!group || selectedIds.length === 0) {
+      if (antsAnimRef.current) { cancelAnimationFrame(antsAnimRef.current); antsAnimRef.current = null }
+      return
+    }
+    let start = performance.now()
+    const tick = (now: number) => {
+      const elapsed = now - start
+      const offset = -(elapsed / 60) // px per frame roughly
+      const shapes = group.getChildren() as Konva.Rect[]
+      for (const s of shapes) {
+        // `dashOffset` is not typed on Konva.Rect; cast via unknown for safety.
+        ;(s as unknown as { dashOffset(v: number): void }).dashOffset(offset)
+      }
+      group.getLayer()?.batchDraw()
+      antsAnimRef.current = requestAnimationFrame(tick)
+    }
+    antsAnimRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (antsAnimRef.current) { cancelAnimationFrame(antsAnimRef.current); antsAnimRef.current = null }
+    }
+  }, [selectedIds])
+
   const sortedNodes = React.useMemo(() => {
     return [...nodes]
       .filter((n) => !hiddenLayers.has(n.layerId))
@@ -276,15 +324,24 @@ export default function CanvasStage({ onReady }: Props) {
       })
   }, [nodes, layers, hiddenLayers])
 
-  const cursorMm = { x: Math.round(cursorWorld.x), y: Math.round(cursorWorld.y) }
+  const selectedNodes = React.useMemo(
+    () => sortedNodes.filter((n) => selectedIds.includes(n.id) && !hiddenLayers.has(n.layerId)),
+    [sortedNodes, selectedIds, hiddenLayers],
+  )
+
+  const cursorClass = isPanning ? 'grabbing'
+                    : spacePressed ? 'grab'
+                    : marqueeStart.current ? 'crosshair'
+                    : 'default'
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full select-none overflow-hidden bg-[#0b0f16]"
+      className="relative h-full w-full select-none overflow-hidden"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      style={{ cursor: isPanning ? 'grabbing' : 'default', ...gridStyle }}
+      onMouseLeave={() => onCursorChange?.(null)}
+      style={{ cursor: cursorClass, background: bgColour, ...gridStyle }}
     >
       {size.w > 10 && size.h > 10 && (
         <Stage
@@ -299,7 +356,7 @@ export default function CanvasStage({ onReady }: Props) {
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
-          onMouseLeave={() => { if (isPanning) endPan(); marqueeStart.current = null; setMarquee(null) }}
+          onMouseLeave={() => { if (isPanning) endPan(); marqueeStart.current = null; setMarquee(null); setHover(null) }}
           onContextMenu={(e) => e.evt.preventDefault()}
         >
           <Layer listening>
@@ -315,6 +372,9 @@ export default function CanvasStage({ onReady }: Props) {
               />
             ))}
 
+            {/* Marching-ants placeholder is rendered in the overlay layer below */}
+
+            {/* Marquee */}
             {marquee && (
               <Rect
                 x={marquee.x}
@@ -335,7 +395,7 @@ export default function CanvasStage({ onReady }: Props) {
               resizeEnabled
               keepRatio={false}
               anchorSize={9}
-              borderStroke="#38bdf8"
+              borderStroke={SELECTION_STROKE}
               anchorStroke="#0ea5e9"
               anchorFill="#0f172a"
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
@@ -346,13 +406,29 @@ export default function CanvasStage({ onReady }: Props) {
               }}
             />
           </Layer>
+
+          {/* Marching-ants layer — non-listening overlay above the main layer */}
+          <Layer listening={false}>
+            <Group ref={(node) => { antsGroupRef.current = node ?? null }}>
+              {selectedNodes.map((n) => (
+                <Rect
+                  key={`ants-${n.id}`}
+                  x={n.x}
+                  y={n.y}
+                  width={n.width}
+                  height={n.height}
+                  rotation={n.rotation}
+                  stroke={SELECTION_STROKE}
+                  strokeWidth={1.25 / viewport.scale}
+                  dash={[6 / viewport.scale, 4 / viewport.scale]}
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+              ))}
+            </Group>
+          </Layer>
         </Stage>
       )}
-
-      {/* Cursor readout */}
-      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 font-mono text-[10px] text-white/80">
-        x: {cursorMm.x}mm &nbsp; y: {cursorMm.y}mm
-      </div>
     </div>
   )
 }

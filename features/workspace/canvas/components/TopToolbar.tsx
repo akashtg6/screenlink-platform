@@ -20,11 +20,10 @@ import {
   Copy, ClipboardPaste, Group, Ungroup, Undo2, Redo2,
   RotateCcw, RotateCw, Save, Grid3x3, Magnet, Maximize2,
   ZoomIn, ZoomOut, Loader2, Check, AlertCircle, Trash2,
-  Sparkles,
+  Sparkles, Ruler, Map, Focus, RefreshCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WorkspaceSaveStatus } from '../use-workspace-persistence'
-import { ZOOM_STEP } from '../constants'
 
 interface Props {
   saveStatus: WorkspaceSaveStatus
@@ -32,6 +31,7 @@ interface Props {
   dirty: boolean
   onSave: () => void
   onFit: () => void
+  onZoomToSelection: () => void
   onOpenSummary: () => void
 }
 
@@ -58,7 +58,7 @@ function IconBtn({
   )
 }
 
-export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onOpenSummary }: Props) {
+export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onZoomToSelection, onOpenSummary }: Props) {
   const selectedIds = useWorkspaceStore((s) => s.selectedIds)
   const align = useWorkspaceStore((s) => s.align)
   const distribute = useWorkspaceStore((s) => s.distribute)
@@ -78,10 +78,15 @@ export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onOp
   const deleteSelected = useWorkspaceStore((s) => s.deleteSelected)
   const snapEnabled = useWorkspaceStore((s) => s.snapEnabled)
   const gridVisible = useWorkspaceStore((s) => s.gridVisible)
+  const rulersVisible = useWorkspaceStore((s) => s.rulersVisible)
+  const minimapVisible = useWorkspaceStore((s) => s.minimapVisible)
   const toggleSnap = useWorkspaceStore((s) => s.toggleSnap)
   const toggleGrid = useWorkspaceStore((s) => s.toggleGrid)
-  const setViewport = useWorkspaceStore((s) => s.setViewport)
-  const viewport = useWorkspaceStore((s) => s.viewport)
+  const toggleRulers = useWorkspaceStore((s) => s.toggleRulers)
+  const toggleMinimap = useWorkspaceStore((s) => s.toggleMinimap)
+  const zoomIn = useWorkspaceStore((s) => s.zoomIn)
+  const zoomOut = useWorkspaceStore((s) => s.zoomOut)
+  const resetViewport = useWorkspaceStore((s) => s.resetViewport)
 
   const hasSelection = selectedIds.length > 0
   const hasMulti = selectedIds.length >= 2
@@ -133,11 +138,15 @@ export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onOp
         <Separator orientation="vertical" className="mx-1 h-5" />
 
         {/* View */}
-        <IconBtn label={snapEnabled ? 'Snap on' : 'Snap off'} onClick={toggleSnap} className={snapEnabled ? 'text-accent' : ''}><Magnet className="h-3.5 w-3.5" /></IconBtn>
-        <IconBtn label={gridVisible ? 'Grid on' : 'Grid off'} onClick={toggleGrid} className={gridVisible ? 'text-accent' : ''}><Grid3x3 className="h-3.5 w-3.5" /></IconBtn>
-        <IconBtn label="Zoom out" onClick={() => setViewport({ scale: viewport.scale / ZOOM_STEP })}><ZoomOut className="h-3.5 w-3.5" /></IconBtn>
-        <IconBtn label="Zoom in"  onClick={() => setViewport({ scale: viewport.scale * ZOOM_STEP })}><ZoomIn  className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label={snapEnabled ? 'Snap on'    : 'Snap off'}    onClick={toggleSnap}    className={snapEnabled    ? 'text-accent' : ''}><Magnet className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label={gridVisible ? 'Grid on'    : 'Grid off'}    onClick={toggleGrid}    className={gridVisible    ? 'text-accent' : ''}><Grid3x3 className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label={rulersVisible ? 'Rulers on' : 'Rulers off'} onClick={toggleRulers}  className={rulersVisible  ? 'text-accent' : ''}><Ruler className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label={minimapVisible ? 'Minimap on' : 'Minimap off'} onClick={toggleMinimap} className={minimapVisible ? 'text-accent' : ''}><Map className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label="Zoom out" onClick={zoomOut}><ZoomOut className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label="Zoom in"  onClick={zoomIn}><ZoomIn  className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn label="Fit to screen (1)" onClick={onFit}><Maximize2 className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label="Zoom to selection (⇧1)" onClick={onZoomToSelection} disabled={!hasSelection}><Focus className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label="Reset view (100%)" onClick={resetViewport}><RefreshCcw className="h-3.5 w-3.5" /></IconBtn>
 
         <div className="flex-1" />
 

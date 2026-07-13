@@ -20,8 +20,8 @@ function isEditableTarget(t: EventTarget | null): boolean {
   return false
 }
 
-export function useCanvasHotkeys(opts: { onSave: () => void; onFit: () => void }): void {
-  const { onSave, onFit } = opts
+export function useCanvasHotkeys(opts: { onSave: () => void; onFit: () => void; onZoomToSelection: () => void }): void {
+  const { onSave, onFit, onZoomToSelection } = opts
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -42,10 +42,12 @@ export function useCanvasHotkeys(opts: { onSave: () => void; onFit: () => void }
       if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); s.copySelected(); return }
       if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); s.paste(); return }
       if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); s.duplicateSelected(); return }
-      if (mod && e.key.toLowerCase() === 'a') {
-        e.preventDefault()
-        s.selectMany(s.nodes.map((n) => n.id))
-        return
+      // Sprint 7 — Ctrl+A selects only visible/unlocked, Ctrl+Shift+I inverts.
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault(); s.selectAllVisible(); return
+      }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'i') {
+        e.preventDefault(); s.invertSelection(); return
       }
       // Grouping
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'g') { e.preventDefault(); s.group(); return }
@@ -55,10 +57,13 @@ export function useCanvasHotkeys(opts: { onSave: () => void; onFit: () => void }
       if (!mod && e.key === '[') { e.preventDefault(); s.sendBackward(); return }
       if (mod && e.key === ']') { e.preventDefault(); s.bringToFront(); return }
       if (mod && e.key === '[') { e.preventDefault(); s.sendToBack(); return }
-      // Fit
-      if (!mod && (e.key === '1' && e.shiftKey === false)) {
-        e.preventDefault(); onFit(); return
-      }
+      // Fit / Zoom to selection / Reset view
+      if (!mod && !e.shiftKey && e.key === '1') { e.preventDefault(); onFit(); return }
+      if (!mod &&  e.shiftKey && (e.key === '1' || e.key === '!')) { e.preventDefault(); onZoomToSelection(); return }
+      if (!mod && !e.shiftKey && e.key === '0') { e.preventDefault(); s.resetViewport(); return }
+      // Zoom in / out (Ctrl+= / Ctrl+-)
+      if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); s.zoomIn();  return }
+      if (mod &&  e.key === '-')                    { e.preventDefault(); s.zoomOut(); return }
       // Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault(); s.deleteSelected(); return
@@ -78,5 +83,5 @@ export function useCanvasHotkeys(opts: { onSave: () => void; onFit: () => void }
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [onSave, onFit])
+  }, [onSave, onFit, onZoomToSelection])
 }

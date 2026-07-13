@@ -47,9 +47,13 @@ import {
   sendToBack as sendToBackOp,
   snapValue,
   ungroupNodes,
-  unionBounds,
 } from './engine'
 import type { AlignEdge, DistributeAxis } from './engine'
+import { fitNodesViewport } from './viewport-math'
+import { ZOOM_STEP } from './constants'
+
+/** Sprint 7 — background presets applied to the canvas container. */
+export type CanvasBackground = 'dark' | 'light' | 'blueprint'
 
 export { _AUTOSAVE_INTERVAL_MS as AUTOSAVE_INTERVAL_MS }
 
@@ -75,6 +79,10 @@ export interface WorkspaceStore {
   clipboard: WorkspaceNode[] | null
   snapEnabled: boolean
   gridVisible: boolean
+  rulersVisible: boolean
+  minimapVisible: boolean
+  canvasBackground: CanvasBackground
+  spacePressed: boolean
   dirty: boolean
   lastSavedAt: string | null
 
@@ -91,6 +99,8 @@ export interface WorkspaceStore {
   selectOne(id: string | null, additive?: boolean): void
   selectMany(ids: string[]): void
   clearSelection(): void
+  selectAllVisible(): void
+  invertSelection(): void
   setHover(id: string | null): void
 
   // ——— mutations
@@ -124,12 +134,20 @@ export interface WorkspaceStore {
   // ——— viewport
   setViewport(v: Partial<WorkspaceViewport>): void
   zoomAt(clientX: number, clientY: number, factor: number, containerRect: DOMRect): void
+  zoomIn(): void
+  zoomOut(): void
+  setZoom(scale: number, containerWidth?: number, containerHeight?: number): void
   fitToScreen(containerWidth: number, containerHeight: number, padding?: number): void
+  zoomToSelection(containerWidth: number, containerHeight: number, padding?: number): void
   resetViewport(): void
 
   // ——— toggles
   toggleSnap(): void
   toggleGrid(): void
+  toggleRulers(): void
+  toggleMinimap(): void
+  setCanvasBackground(bg: CanvasBackground): void
+  setSpacePressed(pressed: boolean): void
 
   // ——— undo / redo
   undo(): void
@@ -211,6 +229,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       clipboard: null,
       snapEnabled: true,
       gridVisible: true,
+      rulersVisible: true,
+      minimapVisible: true,
+      canvasBackground: 'dark',
+      spacePressed: false,
       dirty: false,
       lastSavedAt: null,
 
@@ -274,6 +296,23 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
       clearSelection() {
         set({ selectedIds: [] })
+      },
+
+      selectAllVisible() {
+        const { nodes, layers } = get()
+        const hidden = new Set(layers.filter((l) => !l.visible).map((l) => l.id))
+        const ids = nodes.filter((n) => n.visible && !hidden.has(n.layerId)).map((n) => n.id)
+        set({ selectedIds: expandGroupSelection(nodes, ids) })
+      },
+
+      invertSelection() {
+        const { nodes, layers, selectedIds } = get()
+        const hidden = new Set(layers.filter((l) => !l.visible).map((l) => l.id))
+        const current = new Set(selectedIds)
+        const next = nodes
+          .filter((n) => n.visible && !hidden.has(n.layerId) && !current.has(n.id))
+          .map((n) => n.id)
+        set({ selectedIds: expandGroupSelection(nodes, next) })
       },
 
       setHover(id) { set({ hoverId: id }) },
@@ -535,26 +574,55 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           set({ viewport: { x: containerWidth / 2, y: containerHeight / 2, scale: 1 } })
           return
         }
-        const bounds = unionBounds(nodes)
-        if (!bounds) return
-        const w = bounds.maxX - bounds.minX
-        const h = bounds.maxY - bounds.minY
-        if (w <= 0 || h <= 0) return
-        const scale = clampZoom(Math.min(
-          (containerWidth - padding * 2) / w,
-          (containerHeight - padding * 2) / h,
-        ))
-        const x = padding - bounds.minX * scale + (containerWidth - padding * 2 - w * scale) / 2
-        const y = padding - bounds.minY * scale + (containerHeight - padding * 2 - h * scale) / 2
-        set({ viewport: { x, y, scale } })
+        const next = fitNodesViewport(nodes, containerWidth, containerHeight, padding)
+        if (next) set({ viewport: next })
       },
 
-      resetViewport() { set({ viewport: { x: 0, y: 0, scale: 1 } }) },
+      zoomToSelection(containerWidth, containerHeight, padding = 100) {
+        const { nodes, selectedIds } = get()
+        if (selectedIds.length === 0) { get().fitToScreen(containerWidth, containerHeight, padding); return }
+        const selected = nodes.filter((n) => selectedIds.includes(n.id))
+        if (selected.length === 0) return
+        const next = fitNodesViewport(selected, containerWidth, containerHeight, padding)
+        if (next) set({ viewport: next })
+      },
+
+      resetViewport() {
+        // Use container-agnostic reset: origin visible in top-left, 100% zoom.
+        set({ viewport: { x: 0, y: 0, scale: 1 } })
+      },
+
+      zoomIn() {
+        const { viewport } = get()
+        set({ viewport: { ...viewport, scale: clampZoom(viewport.scale * ZOOM_STEP) } })
+      },
+
+      zoomOut() {
+        const { viewport } = get()
+        set({ viewport: { ...viewport, scale: clampZoom(viewport.scale / ZOOM_STEP) } })
+      },
+
+      setZoom(scale, containerWidth, containerHeight) {
+        const { viewport } = get()
+        const nextScale = clampZoom(scale)
+        // Preserve world-space centre when a container is given.
+        if (containerWidth && containerHeight) {
+          const cx = (containerWidth  / 2 - viewport.x) / viewport.scale
+          const cy = (containerHeight / 2 - viewport.y) / viewport.scale
+          set({ viewport: { x: containerWidth / 2 - cx * nextScale, y: containerHeight / 2 - cy * nextScale, scale: nextScale } })
+        } else {
+          set({ viewport: { ...viewport, scale: nextScale } })
+        }
+      },
 
       /* ------------------------------------------------------------ toggles */
 
-      toggleSnap() { set({ snapEnabled: !get().snapEnabled }) },
-      toggleGrid() { set({ gridVisible: !get().gridVisible }) },
+      toggleSnap()      { set({ snapEnabled:      !get().snapEnabled }) },
+      toggleGrid()      { set({ gridVisible:      !get().gridVisible }) },
+      toggleRulers()    { set({ rulersVisible:    !get().rulersVisible }) },
+      toggleMinimap()   { set({ minimapVisible:   !get().minimapVisible }) },
+      setCanvasBackground(bg) { set({ canvasBackground: bg }) },
+      setSpacePressed(pressed) { set({ spacePressed: pressed }) },
 
       /* ------------------------------------------------------------ history */
 
