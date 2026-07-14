@@ -20,7 +20,7 @@ import {
   Copy, ClipboardPaste, Group, Ungroup, Undo2, Redo2,
   RotateCcw, RotateCw, Save, Grid3x3, Magnet, Maximize2,
   ZoomIn, ZoomOut, Loader2, Check, AlertCircle, Trash2,
-  Sparkles, Ruler, Map, Focus, RefreshCcw,
+  Sparkles, Ruler, Map, Focus, RefreshCcw, Rows3, Target, Wand2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WorkspaceSaveStatus } from '../use-workspace-persistence'
@@ -62,6 +62,8 @@ export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onZo
   const selectedIds = useWorkspaceStore((s) => s.selectedIds)
   const align = useWorkspaceStore((s) => s.align)
   const distribute = useWorkspaceStore((s) => s.distribute)
+  const equalGap = useWorkspaceStore((s) => s.equalGap)
+  const centerOnCanvas = useWorkspaceStore((s) => s.centerOnCanvas)
   const bringForward = useWorkspaceStore((s) => s.bringForward)
   const sendBackward = useWorkspaceStore((s) => s.sendBackward)
   const bringToFront = useWorkspaceStore((s) => s.bringToFront)
@@ -77,10 +79,12 @@ export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onZo
   const rotateSelected = useWorkspaceStore((s) => s.rotateSelected)
   const deleteSelected = useWorkspaceStore((s) => s.deleteSelected)
   const snapEnabled = useWorkspaceStore((s) => s.snapEnabled)
+  const smartSnapEnabled = useWorkspaceStore((s) => s.smartSnapEnabled)
   const gridVisible = useWorkspaceStore((s) => s.gridVisible)
   const rulersVisible = useWorkspaceStore((s) => s.rulersVisible)
   const minimapVisible = useWorkspaceStore((s) => s.minimapVisible)
   const toggleSnap = useWorkspaceStore((s) => s.toggleSnap)
+  const toggleSmartSnap = useWorkspaceStore((s) => s.toggleSmartSnap)
   const toggleGrid = useWorkspaceStore((s) => s.toggleGrid)
   const toggleRulers = useWorkspaceStore((s) => s.toggleRulers)
   const toggleMinimap = useWorkspaceStore((s) => s.toggleMinimap)
@@ -123,6 +127,9 @@ export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onZo
         {/* Distribute */}
         <IconBtn label="Distribute horizontally" onClick={() => distribute('horizontal')} disabled={!hasThree}><AlignHorizontalDistributeCenter className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn label="Distribute vertically"   onClick={() => distribute('vertical')}   disabled={!hasThree}><AlignVerticalDistributeCenter className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label="Equal horizontal gap"    onClick={() => equalGap('horizontal')}   disabled={!hasThree}><Rows3 className="h-3.5 w-3.5 rotate-90" /></IconBtn>
+        <IconBtn label="Equal vertical gap"      onClick={() => equalGap('vertical')}     disabled={!hasThree}><Rows3 className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label="Center on canvas"        onClick={centerOnCanvas}                 disabled={!hasSelection}><Target className="h-3.5 w-3.5" /></IconBtn>
         <Separator orientation="vertical" className="mx-1 h-5" />
 
         {/* Z-order */}
@@ -139,6 +146,7 @@ export function TopToolbar({ saveStatus, lastSavedAt, dirty, onSave, onFit, onZo
 
         {/* View */}
         <IconBtn label={snapEnabled ? 'Snap on'    : 'Snap off'}    onClick={toggleSnap}    className={snapEnabled    ? 'text-accent' : ''}><Magnet className="h-3.5 w-3.5" /></IconBtn>
+        <IconBtn label={smartSnapEnabled ? 'Smart snap on' : 'Smart snap off'} onClick={toggleSmartSnap} className={smartSnapEnabled ? 'text-accent' : ''}><Wand2 className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn label={gridVisible ? 'Grid on'    : 'Grid off'}    onClick={toggleGrid}    className={gridVisible    ? 'text-accent' : ''}><Grid3x3 className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn label={rulersVisible ? 'Rulers on' : 'Rulers off'} onClick={toggleRulers}  className={rulersVisible  ? 'text-accent' : ''}><Ruler className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn label={minimapVisible ? 'Minimap on' : 'Minimap off'} onClick={toggleMinimap} className={minimapVisible ? 'text-accent' : ''}><Map className="h-3.5 w-3.5" /></IconBtn>

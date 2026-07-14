@@ -21,6 +21,7 @@ import { intersectsRect, snapValue } from '../engine'
 import { pickGridOpacity, pickGridStep, screenToWorld, isMeaningfulMarquee } from '../viewport-math'
 import type { WorkspaceNode } from '../types'
 import { CabinetShape } from './CabinetShape'
+import { SmartGuides } from './SmartGuides'
 
 interface Props {
   onReady?: (api: { fitToScreen: () => void }) => void
@@ -369,6 +370,8 @@ export default function CanvasStage({ onReady, onCursorChange, onSize }: Props) 
                 onSelect={selectOne}
                 onDragEnd={handleNodeDragEnd}
                 scale={viewport.scale}
+                viewportX={viewport.x}
+                viewportY={viewport.y}
               />
             ))}
 
@@ -407,7 +410,7 @@ export default function CanvasStage({ onReady, onCursorChange, onSize }: Props) 
             />
           </Layer>
 
-          {/* Marching-ants layer — non-listening overlay above the main layer */}
+          {/* Marching-ants + smart guides overlay */}
           <Layer listening={false}>
             <Group ref={(node) => { antsGroupRef.current = node ?? null }}>
               {selectedNodes.map((n) => (
@@ -426,6 +429,7 @@ export default function CanvasStage({ onReady, onCursorChange, onSize }: Props) 
                 />
               ))}
             </Group>
+            <SmartGuides />
           </Layer>
         </Stage>
       )}

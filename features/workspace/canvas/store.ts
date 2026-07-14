@@ -48,6 +48,7 @@ import {
   snapValue,
   ungroupNodes,
 } from './engine'
+import { equalGapObjects, centreObjectsAt, computeSmartSnap, type SnapGuide } from '@/engines/workspace-engine'
 import type { AlignEdge, DistributeAxis } from './engine'
 import { fitNodesViewport } from './viewport-math'
 import { ZOOM_STEP } from './constants'
@@ -78,6 +79,10 @@ export interface WorkspaceStore {
   activeLayerId: string
   clipboard: WorkspaceNode[] | null
   snapEnabled: boolean
+  smartSnapEnabled: boolean
+  snapThresholdPx: number
+  activeGuides: SnapGuide[]
+  dragOrigin: { id: string; x: number; y: number } | null
   gridVisible: boolean
   rulersVisible: boolean
   minimapVisible: boolean
@@ -114,6 +119,8 @@ export interface WorkspaceStore {
   paste(): void
   align(edge: AlignEdge): void
   distribute(axis: DistributeAxis): void
+  equalGap(axis: DistributeAxis, gap?: number): void
+  centerOnCanvas(): void
   bringForward(): void
   sendBackward(): void
   bringToFront(): void
@@ -143,11 +150,18 @@ export interface WorkspaceStore {
 
   // ——— toggles
   toggleSnap(): void
+  toggleSmartSnap(): void
   toggleGrid(): void
   toggleRulers(): void
   toggleMinimap(): void
   setCanvasBackground(bg: CanvasBackground): void
   setSpacePressed(pressed: boolean): void
+
+  // ——— drag & snap (Sprint 7)
+  beginDrag(id: string): void
+  computeDragSnap(id: string, rawX: number, rawY: number, mods: { alt?: boolean; shift?: boolean }): { x: number; y: number }
+  endDrag(id: string, x: number, y: number): void
+  clearGuides(): void
 
   // ——— undo / redo
   undo(): void
@@ -228,6 +242,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       activeLayerId: primary.id,
       clipboard: null,
       snapEnabled: true,
+      smartSnapEnabled: true,
+      snapThresholdPx: 8,
+      activeGuides: [],
+      dragOrigin: null,
       gridVisible: true,
       rulersVisible: true,
       minimapVisible: true,
@@ -427,6 +445,35 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         })
       },
 
+      equalGap(axis, gap) {
+        const { selectedIds, nodes } = get()
+        if (selectedIds.length < 3) return
+        const source = nodes.filter((n) => selectedIds.includes(n.id) && !n.locked)
+        const laid = equalGapObjects(source, axis, gap)
+        const byId = new Map(laid.map((n) => [n.id, n]))
+        apply((d) => {
+          for (let i = 0; i < d.nodes.length; i++) {
+            const rep = byId.get(d.nodes[i].id)
+            if (rep) d.nodes[i] = rep
+          }
+        })
+      },
+
+      centerOnCanvas() {
+        const { selectedIds, nodes } = get()
+        if (selectedIds.length === 0) return
+        const source = nodes.filter((n) => selectedIds.includes(n.id) && !n.locked)
+        // "Canvas centre" == world origin (0, 0) — matches the ruler zero.
+        const centred = centreObjectsAt(source, 0, 0)
+        const byId = new Map(centred.map((n) => [n.id, n]))
+        apply((d) => {
+          for (let i = 0; i < d.nodes.length; i++) {
+            const rep = byId.get(d.nodes[i].id)
+            if (rep) d.nodes[i] = rep
+          }
+        })
+      },
+
       bringForward() {
         const { selectedIds } = get()
         if (selectedIds.length === 0) return
@@ -618,11 +665,67 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       /* ------------------------------------------------------------ toggles */
 
       toggleSnap()      { set({ snapEnabled:      !get().snapEnabled }) },
+      toggleSmartSnap() { set({ smartSnapEnabled: !get().smartSnapEnabled }) },
       toggleGrid()      { set({ gridVisible:      !get().gridVisible }) },
       toggleRulers()    { set({ rulersVisible:    !get().rulersVisible }) },
       toggleMinimap()   { set({ minimapVisible:   !get().minimapVisible }) },
       setCanvasBackground(bg) { set({ canvasBackground: bg }) },
       setSpacePressed(pressed) { set({ spacePressed: pressed }) },
+
+      /* ------------------------------------------------------------ drag & snap */
+
+      beginDrag(id) {
+        const n = get().nodes.find((x) => x.id === id)
+        if (!n) return
+        set({ dragOrigin: { id, x: n.x, y: n.y }, activeGuides: [] })
+      },
+
+      computeDragSnap(id, rawX, rawY, mods) {
+        const { nodes, viewport, snapEnabled, smartSnapEnabled, snapThresholdPx, dragOrigin } = get()
+        const dragging = nodes.find((n) => n.id === id)
+        if (!dragging) return { x: rawX, y: rawY }
+        const origin = dragOrigin?.id === id ? dragOrigin : { id, x: dragging.x, y: dragging.y }
+
+        // SHIFT axis-lock: infer axis from bigger delta from origin.
+        let constrain: 'x' | 'y' | null = null
+        if (mods.shift) {
+          const dx = Math.abs(rawX - origin.x)
+          const dy = Math.abs(rawY - origin.y)
+          constrain = dx >= dy ? 'x' : 'y'
+        }
+
+        const disable = !smartSnapEnabled || mods.alt === true
+        const neighbours = nodes
+          .filter((n) => n.id !== id && n.visible)
+          .map((n) => ({ id: n.id, minX: n.x, minY: n.y, maxX: n.x + n.width, maxY: n.y + n.height }))
+
+        const result = computeSmartSnap({
+          x: rawX, y: rawY,
+          width: dragging.width, height: dragging.height,
+          originX: origin.x, originY: origin.y,
+          neighbours,
+          scale: viewport.scale,
+          thresholdPx: snapThresholdPx,
+          settings: { enabled: snapEnabled, stepMm: SNAP_STEP },
+          disable,
+          constrain,
+        })
+
+        set({ activeGuides: result.guides })
+        return { x: result.x, y: result.y }
+      },
+
+      endDrag(id, x, y) {
+        // Commit final position through the normal history-tracked path.
+        apply((d) => {
+          const idx = d.nodes.findIndex((n) => n.id === id)
+          if (idx < 0) return
+          d.nodes[idx] = { ...d.nodes[idx], x, y }
+        })
+        set({ dragOrigin: null, activeGuides: [] })
+      },
+
+      clearGuides() { set({ activeGuides: [] }) },
 
       /* ------------------------------------------------------------ history */
 

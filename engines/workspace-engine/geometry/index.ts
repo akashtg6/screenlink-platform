@@ -127,6 +127,78 @@ export function distributeObjects<T extends SpatialObject>(objects: T[], axis: D
   })
 }
 
+/**
+ * Sprint 7 — Equal-gap distribution.
+ *
+ * Unlike `distributeObjects` (which uses the *total span* between the first
+ * and last object), this variant lets the caller specify a fixed gap
+ * (edge-to-edge) — or, when `gap` is undefined, derives one from the current
+ * median gap between neighbours. The first object stays put; every other
+ * object is repositioned to sit after the previous one with `gap` pixels of
+ * clear space.
+ */
+export function equalGapObjects<T extends SpatialObject>(
+  objects: T[],
+  axis: DistributeAxis,
+  gap?: number,
+): T[] {
+  if (objects.length < 3) return objects
+  const sorted = [...objects].sort((a, b) => {
+    const ab = objectBounds(a), bb = objectBounds(b)
+    return axis === 'horizontal' ? ab.minX - bb.minX : ab.minY - bb.minY
+  })
+
+  // Derive default gap from median of current gaps.
+  let g = gap
+  if (g == null) {
+    const gaps: number[] = []
+    for (let i = 1; i < sorted.length; i++) {
+      const p = objectBounds(sorted[i - 1])
+      const c = objectBounds(sorted[i])
+      gaps.push(axis === 'horizontal' ? (c.minX - p.maxX) : (c.minY - p.maxY))
+    }
+    gaps.sort((a, b) => a - b)
+    g = gaps[Math.floor(gaps.length / 2)]
+  }
+
+  const moved = new Map<string, { dx: number; dy: number }>()
+  const first = objectBounds(sorted[0])
+  let cursor = axis === 'horizontal' ? first.maxX : first.maxY
+  for (let i = 1; i < sorted.length; i++) {
+    const o = sorted[i]
+    const b = objectBounds(o)
+    const size = axis === 'horizontal' ? (b.maxX - b.minX) : (b.maxY - b.minY)
+    const targetMin = cursor + g
+    const currentMin = axis === 'horizontal' ? b.minX : b.minY
+    const delta = targetMin - currentMin
+    if (axis === 'horizontal') moved.set(o.id, { dx: delta, dy: 0 })
+    else                        moved.set(o.id, { dx: 0, dy: delta })
+    cursor = targetMin + size
+  }
+  return objects.map((o): T => {
+    const m = moved.get(o.id)
+    return m ? { ...o, x: o.x + m.dx, y: o.y + m.dy } : o
+  })
+}
+
+/**
+ * Sprint 7 — Centre the union bounds of the given objects at a world point.
+ * By default this is the world origin (0, 0).
+ */
+export function centreObjectsAt<T extends SpatialObject>(
+  objects: T[],
+  cx = 0,
+  cy = 0,
+): T[] {
+  if (objects.length === 0) return objects
+  const b = unionBounds(objects); if (!b) return objects
+  const currentCx = (b.minX + b.maxX) / 2
+  const currentCy = (b.minY + b.maxY) / 2
+  const dx = cx - currentCx
+  const dy = cy - currentCy
+  return objects.map((o): T => ({ ...o, x: o.x + dx, y: o.y + dy }))
+}
+
 /* -------------------------------------------------------------------------- */
 /* Z-order                                                                     */
 /* -------------------------------------------------------------------------- */

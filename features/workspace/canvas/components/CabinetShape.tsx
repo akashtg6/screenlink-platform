@@ -13,6 +13,7 @@ import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import { ACCENT_HEX, SELECTION_STROKE } from '../constants'
 import type { WorkspaceNode } from '../types'
+import { useWorkspaceStore } from '../store'
 
 export interface CabinetShapeProps {
   node: WorkspaceNode
@@ -22,25 +23,74 @@ export interface CabinetShapeProps {
   onDragEnd: (id: string, x: number, y: number) => void
   onDragMove?: (id: string, x: number, y: number) => void
   scale: number
+  /** Viewport (needed to convert screen-space bound to world-space). */
+  viewportX?: number
+  viewportY?: number
 }
 
 const CabinetShapeInner: React.FC<CabinetShapeProps> = ({
-  node, selected, locked, onSelect, onDragEnd, onDragMove, scale,
+  node, selected, locked, onSelect, onDragEnd, onDragMove, scale, viewportX = 0, viewportY = 0,
 }) => {
   const accent = node.meta?.accent ?? 'slate'
   const palette = ACCENT_HEX[accent]
+
+  // Cache modifier state during the drag so we don't have to plumb a listener
+  // into every Group. `Konva.KonvaEventObject<DragEvent>` doesn't expose
+  // altKey/shiftKey on all frames, but a plain `dragBoundFunc` receives a
+  // MouseEvent-shaped `event` on the Konva Node — we read from the last
+  // seen event here.
+  const modsRef = React.useRef<{ alt: boolean; shift: boolean }>({ alt: false, shift: false })
+
+  React.useEffect(() => {
+    const onDown = (e: KeyboardEvent | MouseEvent) => {
+      modsRef.current = { alt: !!e.altKey, shift: !!e.shiftKey }
+    }
+    window.addEventListener('keydown', onDown as EventListener)
+    window.addEventListener('keyup',   onDown as EventListener)
+    window.addEventListener('mousemove', onDown as EventListener)
+    return () => {
+      window.removeEventListener('keydown', onDown as EventListener)
+      window.removeEventListener('keyup',   onDown as EventListener)
+      window.removeEventListener('mousemove', onDown as EventListener)
+    }
+  }, [])
 
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     e.cancelBubble = true
     onSelect(node.id, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)
   }
 
+  const handleDragStart = () => {
+    useWorkspaceStore.getState().beginDrag(node.id)
+  }
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
+    useWorkspaceStore.getState().endDrag(node.id, e.target.x(), e.target.y())
     onDragEnd(node.id, e.target.x(), e.target.y())
   }
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     onDragMove?.(node.id, e.target.x(), e.target.y())
   }
+
+  /**
+   * Konva calls this on every drag tick with an *absolute* stage-space
+   * position. We convert to world, ask the store for a snapped world position
+   * (updating the guides in the store as a side-effect), then convert back to
+   * absolute stage-space for the Konva return value.
+   */
+  const dragBoundFunc = React.useCallback(
+    (pos: { x: number; y: number }) => {
+      const worldX = (pos.x - viewportX) / scale
+      const worldY = (pos.y - viewportY) / scale
+      const snapped = useWorkspaceStore
+        .getState()
+        .computeDragSnap(node.id, worldX, worldY, modsRef.current)
+      return {
+        x: snapped.x * scale + viewportX,
+        y: snapped.y * scale + viewportY,
+      }
+    },
+    [node.id, scale, viewportX, viewportY],
+  )
 
   // Header height in world mm — scales inversely so it stays legible at any zoom.
   const headerH = Math.min(72, Math.max(28, 40 / Math.max(0.6, scale)))
@@ -57,8 +107,10 @@ const CabinetShapeInner: React.FC<CabinetShapeProps> = ({
       opacity={node.visible ? 1 : 0.15}
       onClick={handleClick}
       onTap={handleClick}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragMove={handleDragMove}
+      dragBoundFunc={dragBoundFunc}
       offsetX={0}
       offsetY={0}
     >

@@ -18,3 +18,4 @@ export function snapDelta(delta: number, settings: SnapSettings): number {
 }
 
 export { snapValueMath as snapValue }
+export * from './smart-snap'
